@@ -6,3 +6,11 @@ librosa
 numpy
 scipy
 tqdm
+
+
+# for testing
+coverage
+pytest>=3.6
+pytest-ordering
+pytest-cov
+python-coveralls
