@@ -1,0 +1,8 @@
+# local package
+-e .
+
+matplotlib
+librosa
+numpy
+scipy
+tqdm
