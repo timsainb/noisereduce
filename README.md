@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.com/timsainb/noisereduce.svg?branch=master)](https://travis-ci.com/timsainb/noisereduce)
 [![Coverage Status](https://coveralls.io/repos/github/timsainb/noisereduce/badge.svg?branch=master)](https://coveralls.io/github/timsainb/noisereduce?branch=master)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/timsainb/noisereduce/master?filepath=notebooks%2F1.0-test-noise-reduction.ipynb)
+[![PyPI version](https://badge.fury.io/py/noisereduce.svg)](https://badge.fury.io/py/noisereduce)
 
 # Noise reduction in python using 
 - This algorithm is based (but not completely reproducing) on the one [outlined by Audacity](https://wiki.audacityteam.org/wiki/How_Audacity_Noise_Reduction_Works) for the **noise reduction effect** ([Link to C++ code](https://github.com/audacity/audacity/blob/master/src/effects/NoiseReduction.cpp))
