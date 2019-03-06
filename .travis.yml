@@ -6,4 +6,4 @@ python:
 script:
   - pytest --cov=noisereduce
 after_sucess:
-  coveralls
+  - coveralls
