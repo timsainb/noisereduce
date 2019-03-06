@@ -3,5 +3,3 @@ os:
   - linux
 python:
   - "3.6"
-script:
-  - pytest --cov=noisereduce --current-env
