@@ -4,4 +4,4 @@ os:
 python:
   - "3.6"
 script:
-  - pytest --cov=noisereduce
+  - pytest --cov=noisereduce --current-env

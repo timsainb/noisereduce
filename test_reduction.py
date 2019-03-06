@@ -19,7 +19,7 @@ def test_reduce_cafe_noise():
 	wav_loc = "assets/fish.wav"
 	rate, data= wavfile.read(wav_loc)
 	data = data/32768.
-	noise_loc = "assets/cafe_short.wav"
+	noise_loc = "../assets/cafe_short.wav"
 	noise_rate, noise_data= wavfile.read(noise_loc)
 	noise_data = noise_data/32768
 	# add noise
