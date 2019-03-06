@@ -5,3 +5,5 @@ python:
   - "3.6"
 script:
   - pytest --cov=noisereduce
+after_sucess:
+  coveralls
