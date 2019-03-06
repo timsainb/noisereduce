@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/timsainb/noisereduce/badge.svg?branch=master)](https://coveralls.io/github/timsainb/noisereduce?branch=master)
+
 noisereduction
 ==============================
 
