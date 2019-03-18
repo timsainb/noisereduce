@@ -10,3 +10,5 @@ dependencies:
   - librosa
   - numpy
   - tqdm
+  - pip:
+     - noisereduce
