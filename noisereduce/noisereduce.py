@@ -69,9 +69,7 @@ def update_pbar(pbar, message):
 
 def _smoothing_filter(n_grad_freq, n_grad_time):
     """Generates a filter to smooth the mask for the spectrogram
-    
-    [description]
-    
+        
     Arguments:
         n_grad_freq {[type]} -- [how many frequency channels to smooth over with the mask.]
         n_grad_time {[type]} -- [how many time channels to smooth over with the mask.]
@@ -96,10 +94,8 @@ def _smoothing_filter(n_grad_freq, n_grad_time):
 
 
 def mask_signal(sig_stft_db, sig_mask, mask_gain_dB, sig_stft):
-    """[summary]
-    
-    [description]
-    
+    """ Reduces amplitude of time/frequency regions of a spectrogram based upon a mask 
+        
     Arguments:
         sig_stft_db {[type]} -- spectrogram of signal in dB
         sig_mask {[type]} -- mask to apply to signal
@@ -121,16 +117,14 @@ def mask_signal(sig_stft_db, sig_mask, mask_gain_dB, sig_stft):
     return sig_stft_amp, sig_stft_db_masked
 
 def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
-    """[summary]
-    
-    [description]
+    """ Convolves a gaussian filter with a mask (or any image)
     
     Arguments:
-        sig_mask {[type]} -- [description]
-        smoothing_filter {[type]} -- [description]
+        sig_mask {[type]} -- The signal mask
+        smoothing_filter {[type]} -- the filter to convolve
     
     Keyword Arguments:
-        use_tensorflow {bool} -- [description] (default: {False})
+        use_tensorflow {bool} -- use tensorflow.signal or scipy.signal (default: {False})
     """
     if use_tensorflow:
         smoothing_filter = smoothing_filter * ((np.shape(smoothing_filter)[1]-1)/2 + 1)
