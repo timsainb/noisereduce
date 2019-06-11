@@ -22,7 +22,7 @@
 ## Installation
 `pip install noisereduce`
 
-*noisereduce optionally uses Tensorflow as a backend to speed up FFT and gaussian convolution. It is not listed in the requirements.txt so because (1) it is optional and (2) tensorflow-gpu and tensorflow (cpu) are both compatible with this package. However, the package requires Tensorflow 2+*
+*noisereduce optionally uses Tensorflow as a backend to speed up FFT and gaussian convolution. It is not listed in the requirements.txt so because (1) it is optional and (2) tensorflow-gpu and tensorflow (cpu) are both compatible with this package. The package requires Tensorflow 2+ for all tensorflow operations.* 
 
 ## Usage
 (see notebooks)
