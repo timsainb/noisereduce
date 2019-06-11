@@ -23,6 +23,8 @@
 ## Installation
 `pip install noisereduce`
 
+*noisereduce optionally uses Tensorflow as a backend to speed up FFT and gaussian convolution. It is not listed in the requirements.txt so because (1) it is optional and (2) tensorflow-gpu and tensorflow (cpu) are both compatible with this package. The package requires Tensorflow 2+ for all tensorflow operations.* 
+
 ## Usage
 (see notebooks)
 
@@ -45,6 +47,8 @@ win_length (int): Each frame of audio is windowed by `window()`. The window will
 hop_length (int):number audio of frames between STFT columns.
 n_std_thresh (int): how many standard deviations louder than the mean dB of the noise (at each frequency level) to be considered signal
 prop_decrease (float): To what extent should you decrease noise (1 = all, 0 = none)
+pad_clipping (bool): Pad the signals with zeros to ensure that the reconstructed data is equal length to the data
+        use_tensorflow (bool): Use tensorflow as a backend for convolution and fft to speed up computation
 verbose (bool): Whether to plot the steps of the algorithm
 ```
 <div style="text-align:center">

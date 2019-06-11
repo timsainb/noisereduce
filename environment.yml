@@ -1,4 +1,4 @@
-name: birdbrain
+name: noisereduce
 channels:
   - conda-forge
   - defaults

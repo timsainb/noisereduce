@@ -6,13 +6,13 @@ with open("README.md", "r") as fh:
 setup(
     name="noisereduce",
     packages=find_packages(),
-    version="0.1.2",
+    version="1.0",
     description="Noise reduction using Spectral Gating in python",
     author="Tim Sainburg",
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/timsainb/birdbrain",
+    url="https://github.com/timsainb/noisereduce",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
@@ -22,4 +22,7 @@ setup(
         "Topic :: Scientific/Engineering",
     ],
     install_requires=["scipy", "matplotlib", "librosa", "numpy", "tqdm"],
+    extras_require={
+        'Tensorflow':  ["tensorflow>=2.0"],
+    }
 )
