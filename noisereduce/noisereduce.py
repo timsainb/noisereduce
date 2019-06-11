@@ -3,14 +3,52 @@ import numpy as np
 import librosa
 from noisereduce.plotting import plot_reduction_steps
 from tqdm.autonotebook import tqdm
+import warnings
+
+try:
+    import tensorflow as tf
+    print("GPUs available: {}".format(tf.config.experimental.list_physical_devices('GPU')))
+    if int(tf.__version__[0]) < 2:
+        warnings.warn('Tensorflow version is below 2.0, some GPU accelerated functionality may not work')
+except ImportError:
+    warnings.warn('Tensorflow is not installed and cannot be used for GPU accelerated STFT')
 
 
-def _stft(y, n_fft, hop_length, win_length):
+def _stft(y, n_fft, hop_length, win_length, use_tensorflow=False):
+    if use_tensorflow:
+        #return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True)
+        return _stft_tensorflow(y, n_fft, hop_length, win_length)
+    else:
+        return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True)
+
+def _istft(y, n_fft, hop_length, win_length, use_tensorflow=False):
+    if use_tensorflow:
+        #return librosa.istft(y, hop_length, win_length)
+        return _istft_tensorflow(y.T, n_fft, hop_length, win_length)
+    else:
+        return librosa.istft(y, hop_length, win_length)
+
+def _stft_librosa(y, n_fft, hop_length, win_length):
     return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True)
 
-
-def _istft(y, hop_length, win_length):
+def _istft_librosa(y, hop_length, win_length):
     return librosa.istft(y, hop_length, win_length)
+
+
+def _stft_tensorflow(y, n_fft, hop_length, win_length):
+    return tf.signal.stft(
+        y,
+        win_length,
+        hop_length,
+        n_fft,
+        pad_end=True,
+        window_fn=tf.signal.hann_window,
+    ).numpy().T
+
+def _istft_tensorflow(y, n_fft, hop_length, win_length):
+    return tf.signal.inverse_stft(
+        y.astype(np.complex64), win_length, hop_length, n_fft
+    ).numpy()
 
 
 def _amp_to_db(x):
@@ -82,6 +120,25 @@ def mask_signal(sig_stft_db, sig_mask, mask_gain_dB, sig_stft):
     )
     return sig_stft_amp, sig_stft_db_masked
 
+def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
+    """[summary]
+    
+    [description]
+    
+    Arguments:
+        sig_mask {[type]} -- [description]
+        smoothing_filter {[type]} -- [description]
+    
+    Keyword Arguments:
+        use_tensorflow {bool} -- [description] (default: {False})
+    """
+    if use_tensorflow:
+        smoothing_filter = smoothing_filter * ((np.shape(smoothing_filter)[1]-1)/2 + 1)
+        smoothing_filter = smoothing_filter[:, :, tf.newaxis, tf.newaxis].astype('float32')
+        img = sig_mask[:, :, tf.newaxis, tf.newaxis].astype('float32')
+        return tf.nn.conv2d(img, smoothing_filter, strides=[1, 1, 1, 1], padding="SAME").numpy().squeeze()
+    else:
+        return scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
 
 def reduce_noise(
     audio_clip,
@@ -93,8 +150,9 @@ def reduce_noise(
     hop_length=512,
     n_std_thresh=1.5,
     prop_decrease=1.0,
+    pad_clipping = True,
+    use_tensorflow=False,
     verbose=False,
-    pad_clipping = True
 ):
     """Remove noise from audio based upon a clip containing only noise
 
@@ -108,6 +166,8 @@ def reduce_noise(
         hop_length (int):number audio of frames between STFT columns.
         n_std_thresh (int): how many standard deviations louder than the mean dB of the noise (at each frequency level) to be considered signal
         prop_decrease (float): To what extent should you decrease noise (1 = all, 0 = none)
+        pad_clipping (bool): Pad the signals with zeros to ensure that the reconstructed data is equal length to the data
+        use_tensorflow (bool): Use tensorflow as a backend for convolution and fft to speed up computation
         verbose (bool): Whether to plot the steps of the algorithm
 
     Returns:
@@ -121,7 +181,7 @@ def reduce_noise(
 
     update_pbar(pbar, "STFT on noise")
     # STFT over noise
-    noise_stft = _stft(noise_clip, n_fft, hop_length, win_length)
+    noise_stft = _stft(noise_clip, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow)
     noise_stft_db = _amp_to_db(np.abs(noise_stft))  # convert to dB
     # Calculate statistics over noise
     update_pbar(pbar, "STFT on signal")
@@ -136,7 +196,7 @@ def reduce_noise(
         nsamp = len(audio_clip)
         audio_clip = np.pad(audio_clip, [0, hop_length], mode='constant')
 
-    sig_stft = _stft(audio_clip, n_fft, hop_length, win_length)
+    sig_stft = _stft(audio_clip, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow)
     sig_stft_db = _amp_to_db(np.abs(sig_stft))
     update_pbar(pbar, "Generate mask")
     # Calculate value to mask dB to
@@ -152,7 +212,10 @@ def reduce_noise(
     update_pbar(pbar, "Smooth mask")
     # Create a smoothing filter for the mask in time and frequency
     smoothing_filter = _smoothing_filter(n_grad_freq, n_grad_time)
+    
     # convolve the mask with a smoothing filter
+    sig_mask = convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow)
+
     sig_mask = scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
     sig_mask = sig_mask * prop_decrease
     update_pbar(pbar, "Apply mask")
@@ -164,13 +227,13 @@ def reduce_noise(
 
     update_pbar(pbar, "Recover signal")
     # recover the signal
-    recovered_signal = _istft(sig_stft_amp, hop_length, win_length)
+    recovered_signal = _istft(sig_stft_amp, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow)
     # fix the recovered signal length if padding signal
     if pad_clipping:
         recovered_signal = librosa.util.fix_length(recovered_signal, nsamp)
 
     recovered_spec = _amp_to_db(
-        np.abs(_stft(recovered_signal, n_fft, hop_length, win_length))
+        np.abs(_stft(recovered_signal, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow))
     )
     if verbose:
         plot_reduction_steps(
