@@ -5,21 +5,6 @@ from noisereduce.plotting import plot_reduction_steps
 from tqdm.autonotebook import tqdm
 import warnings
 
-try:
-    import tensorflow as tf
-
-    print(
-        "GPUs available: {}".format(tf.config.experimental.list_physical_devices("GPU"))
-    )
-    if int(tf.__version__[0]) < 2:
-        warnings.warn(
-            "Tensorflow version is below 2.0, some GPU accelerated functionality may not work"
-        )
-except ImportError:
-    warnings.warn(
-        "Tensorflow is not installed and cannot be used for GPU accelerated STFT"
-    )
-
 
 def _stft(y, n_fft, hop_length, win_length, use_tensorflow=False):
     if use_tensorflow:
@@ -163,6 +148,34 @@ def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
         return scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
 
 
+def load_tensorflow(verbose=False):
+    """loads tensorflow if it is available
+    Used as a backend for fft and convolution
+    
+    Returns:
+        bool -- whether to use tensorflow
+    """
+    try:
+        #import tensorflow as tf
+        globals()["tf"] = __import__("tensorflow")
+
+        
+        if verbose: 
+            available_gpus = tf.config.experimental.list_physical_devices("GPU")
+            print("GPUs available: {}".format(available_gpus))
+        if int(tf.__version__[0]) < 2:
+            warnings.warn(
+                "Tensorflow version is below 2.0, reverting to non-tensorflow backend"
+            )
+            return False
+    except:
+        warnings.warn(
+            "Tensorflow is not installed, reverting to non-tensorflow backend"
+        )
+        return False
+    return True
+
+
 def reduce_noise(
     audio_clip,
     noise_clip,
@@ -197,6 +210,10 @@ def reduce_noise(
         array: The recovered signal with noise subtracted
 
     """
+    # load tensorflow if you are using it as a backend
+    if use_tensorflow:
+        use_tensorflow = load_tensorflow(verbose)
+
     if verbose:
         pbar = tqdm(total=7)
     else:
