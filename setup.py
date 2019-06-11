@@ -12,7 +12,7 @@ setup(
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/timsainb/birdbrain",
+    url="https://github.com/timsainb/noisereduce",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
