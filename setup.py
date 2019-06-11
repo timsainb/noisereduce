@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setup(
     name="noisereduce",
     packages=find_packages(),
-    version="0.1.2",
+    version="1.0",
     description="Noise reduction using Spectral Gating in python",
     author="Tim Sainburg",
     license="MIT",
