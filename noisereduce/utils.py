@@ -8,14 +8,8 @@ def int16_to_float32(data):
         raise ValueError('Data has values above 32768')
     return (data/ 32768.0).astype("float32")
 
-
-def float32_to_uint8(data):
-    """ convert from float32 to uint8 (256)
-    """
-    raise NotImplementedError
-
-
 def float32_to_int16(data):
     if np.max(data) > 1:
         data = data / np.max(np.abs(data))
     return np.array(data * 32767).astype("int16")
+
