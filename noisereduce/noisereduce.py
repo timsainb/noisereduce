@@ -6,7 +6,7 @@ from tqdm.autonotebook import tqdm
 
 
 def _stft(y, n_fft, hop_length, win_length):
-    return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length)
+    return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True)
 
 
 def _istft(y, hop_length, win_length):
@@ -94,6 +94,7 @@ def reduce_noise(
     n_std_thresh=1.5,
     prop_decrease=1.0,
     verbose=False,
+    pad_clipping = True
 ):
     """Remove noise from audio based upon a clip containing only noise
 
@@ -129,6 +130,12 @@ def reduce_noise(
     noise_thresh = mean_freq_noise + std_freq_noise * n_std_thresh
     # STFT over signal
     update_pbar(pbar, "STFT on signal")
+
+    # pad signal with zeros to avoid extra frames being clipped if desired 
+    if pad_clipping:
+        nsamp = len(audio_clip)
+        audio_clip = np.pad(audio_clip, [0, hop_length], mode='constant')
+
     sig_stft = _stft(audio_clip, n_fft, hop_length, win_length)
     sig_stft_db = _amp_to_db(np.abs(sig_stft))
     update_pbar(pbar, "Generate mask")
@@ -150,12 +157,18 @@ def reduce_noise(
     sig_mask = sig_mask * prop_decrease
     update_pbar(pbar, "Apply mask")
     # mask the signal
+
     sig_stft_amp, sig_stft_db_masked = mask_signal(
         sig_stft_db, sig_mask, mask_gain_dB, sig_stft
     )
+
     update_pbar(pbar, "Recover signal")
     # recover the signal
     recovered_signal = _istft(sig_stft_amp, hop_length, win_length)
+    # fix the recovered signal length if padding signal
+    if pad_clipping:
+        recovered_signal = librosa.util.fix_length(recovered_signal, nsamp)
+
     recovered_spec = _amp_to_db(
         np.abs(_stft(recovered_signal, n_fft, hop_length, win_length))
     )
