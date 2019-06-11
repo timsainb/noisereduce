@@ -22,4 +22,7 @@ setup(
         "Topic :: Scientific/Engineering",
     ],
     install_requires=["scipy", "matplotlib", "librosa", "numpy", "tqdm"],
+    extras_require={
+        'Tensorflow':  ["tensorflow>=2.0"],
+    }
 )
