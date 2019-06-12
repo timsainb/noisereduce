@@ -131,6 +131,7 @@ def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
     Keyword Arguments:
         use_tensorflow {bool} -- use tensorflow.signal or scipy.signal (default: {False})
     """
+    sig_mask = sig_mask - 1
     if use_tensorflow:
         smoothing_filter = smoothing_filter * (
             (np.shape(smoothing_filter)[1] - 1) / 2 + 1
@@ -262,6 +263,7 @@ def reduce_noise(
 
     sig_mask = scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
     sig_mask = sig_mask * prop_decrease
+    sig_mask += 1
     update_pbar(pbar, "Apply mask")
     # mask the signal
 
