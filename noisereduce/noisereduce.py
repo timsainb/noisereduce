@@ -210,6 +210,11 @@ def reduce_noise(
         array: The recovered signal with noise subtracted
 
     """
+
+    # Conver the signals to mono:
+    audio_clip = audio_clip.sum(axis=1) / 2
+    noise_clip = noise_clip.sum(axis=1) / 2
+    
     # load tensorflow if you are using it as a backend
     if use_tensorflow:
         use_tensorflow = load_tensorflow(verbose)
