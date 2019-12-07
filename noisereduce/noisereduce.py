@@ -260,7 +260,6 @@ def reduce_noise(
     # convolve the mask with a smoothing filter
     sig_mask = convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow)
 
-    sig_mask = scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
     sig_mask = sig_mask * prop_decrease
     update_pbar(pbar, "Apply mask")
     # mask the signal
