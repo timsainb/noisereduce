@@ -32,6 +32,7 @@ See example notebook: [![Open In Colab](https://colab.research.google.com/assets
 import noisereduce as nr
 # load data
 rate, data = wavfile.read("mywav.wav")
+data /= 32768
 # select section of data that is noise
 noisy_part = data[10000:15000]
 # perform noise reduction
