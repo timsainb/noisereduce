@@ -1,0 +1,26 @@
+{
+	"length_s": 15,
+	"latitude": "X",
+	"longitude": "Y",
+	"species": "starlings",
+	"weight": 30,
+	"indvs" : {
+		"B1534": {
+			"group": "group1",
+			"partner": "B1534",
+			"age": "15 days",
+			"units": {
+				"notes": {
+					"label_method": "hand labelled",
+					"start_times" : [1,2,3],
+					"end_times" :  [2,3,4],
+					"labels" : ["a","b","c"],
+					"Hz_min" : [0,100,200],
+					"Hz_max" : [500,400,600],
+					"contexts" : ["singing", "fighting", "fleeing"],
+				}
+
+			},
+		},
+	}
+}
