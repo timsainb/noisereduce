@@ -97,28 +97,18 @@ def _smoothing_filter(n_grad_freq, n_grad_time):
     return smoothing_filter
 
 
-def mask_signal(sig_stft_db, sig_mask, mask_gain_dB, sig_stft):
+def mask_signal(sig_stft, sig_mask):
     """ Reduces amplitude of time/frequency regions of a spectrogram based upon a mask 
         
     Arguments:
-        sig_stft_db {[type]} -- spectrogram of signal in dB
-        sig_mask {[type]} -- mask to apply to signal
-        mask_gain_dB {[type]} -- value to mask dB to (how much to reduce volume of mask)
         sig_stft {[type]} -- spectrogram of signal
+        sig_mask {[type]} -- mask to apply to signal
     
     Returns:
         sig_stft_amp [type] -- masked signal
-        sig_stft_db_masked [type] -- Masked signal in db (for visualization)
     """
-    sig_stft_db_masked = (
-        sig_stft_db * (1 - sig_mask)
-        + np.ones(np.shape(mask_gain_dB)) * mask_gain_dB * sig_mask
-    )  # mask real
-    sig_imag_masked = np.imag(sig_stft) * (1 - sig_mask)
-    sig_stft_amp = (_db_to_amp(sig_stft_db_masked) * np.sign(sig_stft)) + (
-        1j * sig_imag_masked
-    )
-    return sig_stft_amp, sig_stft_db_masked
+    sig_stft_amp = sig_stft * (1 - sig_mask)
+    return sig_stft_amp
 
 
 def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
@@ -156,11 +146,10 @@ def load_tensorflow(verbose=False):
         bool -- whether to use tensorflow
     """
     try:
-        #import tensorflow as tf
+        # import tensorflow as tf
         globals()["tf"] = __import__("tensorflow")
 
-        
-        if verbose: 
+        if verbose:
             available_gpus = tf.config.experimental.list_physical_devices("GPU")
             print("GPUs available: {}".format(available_gpus))
         if int(tf.__version__[0]) < 2:
@@ -241,10 +230,10 @@ def reduce_noise(
     sig_stft = _stft(
         audio_clip, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow
     )
+    # spectrogram of signal in dB
     sig_stft_db = _amp_to_db(np.abs(sig_stft))
     update_pbar(pbar, "Generate mask")
-    # Calculate value to mask dB to
-    mask_gain_dB = np.min(_amp_to_db(np.abs(sig_stft)))
+
     # calculate the threshold for each frequency/time bin
     db_thresh = np.repeat(
         np.reshape(noise_thresh, [1, len(mean_freq_noise)]),
@@ -264,9 +253,7 @@ def reduce_noise(
     update_pbar(pbar, "Apply mask")
     # mask the signal
 
-    sig_stft_amp, sig_stft_db_masked = mask_signal(
-        sig_stft_db, sig_mask, mask_gain_dB, sig_stft
-    )
+    sig_stft_amp = mask_signal(sig_stft, sig_mask)
 
     update_pbar(pbar, "Recover signal")
     # recover the signal
@@ -297,7 +284,6 @@ def reduce_noise(
             smoothing_filter,
             sig_stft_db,
             sig_mask,
-            sig_stft_db_masked,
             recovered_spec,
         )
     return recovered_signal
