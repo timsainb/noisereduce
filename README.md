@@ -7,8 +7,8 @@
 
 # Noise reduction in python using spectral gating
 - This algorithm is based (but not completely reproducing) on the one [outlined by Audacity](https://wiki.audacityteam.org/wiki/How_Audacity_Noise_Reduction_Works) for the **noise reduction effect** ([Link to C++ code](https://github.com/audacity/audacity/blob/master/src/effects/NoiseReduction.cpp))
-- The algorithm requires two inputs: 
-    1. A *noise* audio clip containing prototypical noise of the audio clip
+- The algorithm takes two inputs: 
+    1. A *noise* audio clip containing prototypical noise of the audio clip (optional)
     2. A *signal* audio clip containing the signal and the noise intended to be removed
 
 ## Steps of algorithm
