@@ -32,10 +32,13 @@ See example notebook: [![Open In Colab](https://colab.research.google.com/assets
 import noisereduce as nr
 # load data
 rate, data = wavfile.read("mywav.wav")
+data /= 32768
 # select section of data that is noise
 noisy_part = data[10000:15000]
 # perform noise reduction
-reduced_noise = nr.reduce_noise(audio_clip=data, noise_clip=noisy_part, verbose=True)
+reduced_noise = nr.reduce_noise(audio_clip=data.flatten(), noise_clip=noisy_part.flatten(), verbose=True)
+
+# To store this as a wav again, reshape reduced_noise into the same as data had. 
 ```
 
 ### Arguments to `noise_reduce`
