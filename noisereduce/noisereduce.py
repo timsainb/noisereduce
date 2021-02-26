@@ -1,7 +1,7 @@
 import scipy.signal
 import numpy as np
 import librosa
-from noisereduce.plotting import plot_reduction_steps
+from plotting import plot_reduction_steps
 from tqdm.autonotebook import tqdm
 import warnings
 
