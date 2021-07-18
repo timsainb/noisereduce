@@ -1,84 +1,37 @@
-import scipy.signal
 import numpy as np
+from joblib import Parallel, delayed
 import librosa
-from noisereduce.plotting import plot_reduction_steps
-from tqdm.autonotebook import tqdm
-import warnings
+from scipy.signal import filtfilt
+import scipy
+import tempfile
+from tqdm.auto import tqdm
 
-
-def _stft(y, n_fft, hop_length, win_length, use_tensorflow=False):
-    if use_tensorflow:
-        # return librosa.stft(y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True)
-        return _stft_tensorflow(y, n_fft, hop_length, win_length)
-    else:
-        return librosa.stft(
-            y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True
-        )
-
-
-def _istft(y, n_fft, hop_length, win_length, use_tensorflow=False):
-    if use_tensorflow:
-        # return librosa.istft(y, hop_length, win_length)
-        return _istft_tensorflow(y.T, n_fft, hop_length, win_length)
-    else:
-        return librosa.istft(y, hop_length, win_length)
-
-
-def _stft_librosa(y, n_fft, hop_length, win_length):
-    return librosa.stft(
-        y=y, n_fft=n_fft, hop_length=hop_length, win_length=win_length, center=True
-    )
-
-
-def _istft_librosa(y, hop_length, win_length):
-    return librosa.istft(y, hop_length, win_length)
-
-
-def _stft_tensorflow(y, n_fft, hop_length, win_length):
-    return (
-        tf.signal.stft(
-            y,
-            win_length,
-            hop_length,
-            n_fft,
-            pad_end=True,
-            window_fn=tf.signal.hann_window,
-        )
-        .numpy()
-        .T
-    )
-
-
-def _istft_tensorflow(y, n_fft, hop_length, win_length):
-    return tf.signal.inverse_stft(
-        y.astype(np.complex64), win_length, hop_length, n_fft
-    ).numpy()
-
-
-def _amp_to_db(x):
-    return librosa.core.amplitude_to_db(x, ref=1.0, amin=1e-20, top_db=80.0)
-
-
-def _db_to_amp(x,):
-    return librosa.core.db_to_amplitude(x, ref=1.0)
-
-
-def update_pbar(pbar, message):
-    """ writes to progress bar
+def sigmoid(x, shift, mult):
     """
-    if pbar is not None:
-        pbar.set_description(message)
-        pbar.update(1)
+    Using this sigmoid to discourage one network overpowering the other
+    """
+    return 1 / (1 + np.exp(-(x + shift) * mult))
+
+
+def get_time_smoothed_representation(
+    spectral, samplerate, hop_length, time_constant_s=0.001
+):
+    t_frames = time_constant_s * samplerate / float(hop_length)
+    # By default, this solves the equation for b:
+    #   b**2  + (1 - b) / t_frames  - 2 = 0
+    # which approximates the full-width half-max of the
+    # squared frequency response of the IIR low-pass filt
+    b = (np.sqrt(1 + 4 * t_frames ** 2) - 1) / (2 * t_frames ** 2)
+    return filtfilt([b], [1, b - 1], spectral, axis=-1, padtype=None)
 
 
 def _smoothing_filter(n_grad_freq, n_grad_time):
     """Generates a filter to smooth the mask for the spectrogram
-        
+
     Arguments:
         n_grad_freq {[type]} -- [how many frequency channels to smooth over with the mask.]
         n_grad_time {[type]} -- [how many time channels to smooth over with the mask.]
     """
-
     smoothing_filter = np.outer(
         np.concatenate(
             [
@@ -96,194 +49,553 @@ def _smoothing_filter(n_grad_freq, n_grad_time):
     smoothing_filter = smoothing_filter / np.sum(smoothing_filter)
     return smoothing_filter
 
+class SpectralGate:
+    def __init__(
+        self,
+        y,  
+        sr,  
+        prop_decrease,
+        chunk_size,
+        padding,
+        n_fft,
+        win_length,
+        hop_length,
+        time_constant_s,
+        freq_mask_smooth_hz,
+        time_mask_smooth_ms,
+        tmp_folder,
+        use_tqdm,
+        n_jobs
+    ):
+        self.sr = sr
+        # if this is a 1D single channel recording
+        self.flat = False
 
-def mask_signal(sig_stft, sig_mask):
-    """ Reduces amplitude of time/frequency regions of a spectrogram based upon a mask 
+        y = np.array(y)
+        # reshape data to (#channels, #frames)
+        if len(y.shape) == 1:
+            self.y = np.expand_dims(y, 0)
+            self.flat = True
+        elif len(y.shape) > 2:
+            raise ValueError("Waveform must be in shape (# frames, # channels)")
+        else:
+            self.y = y
+
+        self._dtype = y.dtype
+        # get the number of channels and frames in data
+        self.n_channels, self.n_frames = self.y.shape
+        self._chunk_size = chunk_size
+        self.padding = padding
+        self.n_jobs = n_jobs
+
+        self.use_tqdm = use_tqdm
+        # where to create a temp file for parallel
+        # writing
+        self._tmp_folder = tmp_folder
+
+        ### Parameters for spectral gating
+        self._n_fft = n_fft
+        # set window and hop length for stft
+        if win_length is None:
+            self._win_length = self._n_fft
+        else:
+            self._win_length = win_length
+        if hop_length is None:
+            self._hop_length = self._win_length // 4
+        self._time_constant_s = time_constant_s
+
+        self._prop_decrease = prop_decrease
+
+        if (freq_mask_smooth_hz is None) & (time_mask_smooth_ms is None):
+            self.smooth_mask = False
+        else:
+            self._generate_mask_smoothing_filter(freq_mask_smooth_hz, time_mask_smooth_ms)
+
+    def _generate_mask_smoothing_filter(self, freq_mask_smooth_hz, time_mask_smooth_ms):
+
+        if freq_mask_smooth_hz is None:
+            n_grad_freq = 1
+        else:
+            # filter to smooth the mask
+            n_grad_freq = int(freq_mask_smooth_hz / (self.sr / (self._n_fft / 2)))
+            if n_grad_freq < 1:
+                raise ValueError(
+                    "freq_mask_smooth_hz needs to be at least {}Hz".format(
+                        int((self.sr / (self._n_fft / 2)))
+                    )
+                )
+
+        if time_mask_smooth_ms is None:
+            n_grad_time = 1
+        else:
+            n_grad_time = int(time_mask_smooth_ms / ((self._hop_length / self.sr) * 1000))
+            if n_grad_time < 1:
+                raise ValueError(
+                    "time_mask_smooth_ms needs to be at least {}ms".format(
+                        int((self._hop_length / self.sr) * 1000)
+                    )
+                )
+        if (n_grad_time == 1) & (n_grad_freq == 1):
+            self.smooth_mask = False
+        else:
+            self.smooth_mask = True
+            self._smoothing_filter = _smoothing_filter(n_grad_freq, n_grad_time)
+
+    def _read_chunk(self, i1, i2):
+        """read chunk and pad with zerros"""
+        if i1 < 0:
+            i1b = 0
+        else:
+            i1b = i1
+        if i2 > self.n_frames:
+            i2b = self.n_frames
+        else:
+            i2b = i2
+        chunk = np.zeros((self.n_channels, i2 - i1))
+        chunk[:, i1b - i1 : i2b - i1] = self.y[:, i1b:i2b]
+        return chunk
+
+    def filter_chunk(self, start_frame, end_frame):
+        """Pad and perform filtering"""
+        i1 = start_frame - self.padding
+        i2 = end_frame + self.padding
+        padded_chunk = self._read_chunk(i1, i2)
+        filtered_padded_chunk = self._do_filter(padded_chunk)
+        return filtered_padded_chunk[:, start_frame - i1 : end_frame - i1]
+
+    def _get_filtered_chunk(self, ind):
+        """Grabs a single chunk"""
+        start0 = ind * self._chunk_size
+        end0 = (ind + 1) * self._chunk_size
+        return self.filter_chunk(start_frame=start0, end_frame=end0)
+
+    def _do_filter(self, chunk):
+        """Do the actual filtering"""
+        raise NotImplementedError
+
+        return chunk_filtered
+
+    def _iterate_chunk(self, filtered_chunk, pos, end0, start0, ich):
+        filtered_chunk0 = self._get_filtered_chunk(ich)
+        filtered_chunk[:, pos : pos + end0 - start0] = filtered_chunk0[:, start0:end0]
+        pos += end0 - start0
+
+    def get_traces(self, start_frame=None, end_frame=None):
+        """Grab filtered data iterating over chunks"""
+        if start_frame is None:
+            start_frame = 0
+        if end_frame is None:
+            end_frame = self.n_frames
+
+        if self._chunk_size is not None:
+            if end_frame - start_frame > self._chunk_size:
+                ich1 = int(start_frame / self._chunk_size)
+                ich2 = int((end_frame - 1) / self._chunk_size)
+                
+                # write output to temp memmap for parallelization
+                with tempfile.NamedTemporaryFile(prefix=self._tmp_folder) as fp:
+                    # create temp file
+                    filtered_chunk = np.memmap(
+                        fp,
+                        dtype=self._dtype,
+                        shape=(self.n_channels, int(end_frame - start_frame)),
+                        mode="w+",
+                    )
+                    pos_list = []
+                    start_list = []
+                    end_list = []
+                    pos = 0
+                    for ich in range(ich1, ich2 + 1):
+                        if ich == ich1:
+                            start0 = start_frame - ich * self._chunk_size
+                        else:
+                            start0 = 0
+                        if ich == ich2:
+                            end0 = end_frame - ich * self._chunk_size
+                        else:
+                            end0 = self._chunk_size
+                        pos_list.append(pos)
+                        start_list.append(start0)
+                        end_list.append(end0)
+                        pos += end0 - start0
+                    
+                    Parallel(n_jobs=self.n_jobs)(delayed(self._iterate_chunk)(filtered_chunk, pos, end0, start0, ich)
+                       for pos, start0, end0, ich in zip(
+                        tqdm(pos_list, disable=self.use_tqdm), start_list, end_list, range(ich1, ich2 + 1)
+                    )
+                   )
+                    if self.flat:
+                        return filtered_chunk.astype(self._dtype).flatten()
+                    else:
+                        return filtered_chunk.astype(self._dtype)
+
+        filtered_chunk = self.filter_chunk(start_frame=0, end_frame=end_frame)
+        if self.flat:
+            return filtered_chunk.astype(self._dtype).flatten()
+        else:
+            return filtered_chunk.astype(self._dtype)
+
+
+class SpectralGateNonStationary(SpectralGate):
+    def __init__(
+        self,
+        y, 
+        sr,  
+        chunk_size,
+        padding,
+        n_fft,
+        win_length,
+        hop_length,
+        time_constant_s,
+        freq_mask_smooth_hz,
+        time_mask_smooth_ms,
+        thresh_n_mult_nonstationary,
+        sigmoid_slope_nonstationary,
+        tmp_folder,
+        prop_decrease,
+        use_tqdm,
+        n_jobs
+    ):
         
-    Arguments:
-        sig_stft {[type]} -- spectrogram of signal
-        sig_mask {[type]} -- mask to apply to signal
-    
-    Returns:
-        sig_stft_amp [type] -- masked signal
-    """
-    sig_stft_amp = sig_stft * (1 - sig_mask)
-    return sig_stft_amp
+        self._thresh_n_mult_nonstationary = thresh_n_mult_nonstationary
+        self._sigmoid_slope_nonstationary = sigmoid_slope_nonstationary
 
-
-def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
-    """ Convolves a gaussian filter with a mask (or any image)
-    
-    Arguments:
-        sig_mask {[type]} -- The signal mask
-        smoothing_filter {[type]} -- the filter to convolve
-    
-    Keyword Arguments:
-        use_tensorflow {bool} -- use tensorflow.signal or scipy.signal (default: {False})
-    """
-    if use_tensorflow:
-        smoothing_filter = smoothing_filter * (
-            (np.shape(smoothing_filter)[1] - 1) / 2 + 1
+        super().__init__(
+            y=y, 
+            sr=sr,  
+            chunk_size=chunk_size,
+            padding=padding,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            time_constant_s=time_constant_s,
+            freq_mask_smooth_hz=freq_mask_smooth_hz,
+            time_mask_smooth_ms=time_mask_smooth_ms,
+            tmp_folder=tmp_folder,
+            prop_decrease=prop_decrease,
+            use_tqdm=use_tqdm,
+            n_jobs = n_jobs
         )
-        smoothing_filter = smoothing_filter[:, :, tf.newaxis, tf.newaxis].astype(
-            "float32"
-        )
-        img = sig_mask[:, :, tf.newaxis, tf.newaxis].astype("float32")
-        return (
-            tf.nn.conv2d(img, smoothing_filter, strides=[1, 1, 1, 1], padding="SAME")
-            .numpy()
-            .squeeze()
-        )
-    else:
-        return scipy.signal.fftconvolve(sig_mask, smoothing_filter, mode="same")
 
 
-def load_tensorflow(verbose=False):
-    """loads tensorflow if it is available
-    Used as a backend for fft and convolution
-    
-    Returns:
-        bool -- whether to use tensorflow
-    """
-    try:
-        # import tensorflow as tf
-        globals()["tf"] = __import__("tensorflow")
-
-        if verbose:
-            available_gpus = tf.config.experimental.list_physical_devices("GPU")
-            print("GPUs available: {}".format(available_gpus))
-        if int(tf.__version__[0]) < 2:
-            warnings.warn(
-                "Tensorflow version is below 2.0, reverting to non-tensorflow backend"
+    def spectral_gating_nonstationary(self, chunk):
+        """non-stationary version of spectral gating"""
+        denoised_channels = np.zeros(chunk.shape, chunk.dtype)
+        for ci, channel in enumerate(chunk):
+            sig_stft = librosa.stft(
+                (channel),
+                n_fft=self._n_fft,
+                hop_length=self._hop_length,
+                win_length=self._win_length,
             )
-            return False
-    except:
-        warnings.warn(
-            "Tensorflow is not installed, reverting to non-tensorflow backend"
+            # get abs of signal stft
+            abs_sig_stft = np.abs(sig_stft)
+
+            # get the smoothed mean of the signal
+            sig_stft_smooth = get_time_smoothed_representation(
+                abs_sig_stft,
+                self.sr,
+                self._hop_length,
+                time_constant_s=self._time_constant_s,
+            )
+
+            # get the number of X above the mean the signal is
+            sig_mult_above_thresh = (abs_sig_stft - sig_stft_smooth) / sig_stft_smooth
+            # mask based on sigmoid
+            sig_mask = sigmoid(
+                sig_mult_above_thresh, -self._thresh_n_mult_nonstationary, self._sigmoid_slope_nonstationary
+            )
+
+            if self.smooth_mask:
+                # convolve the mask with a smoothing filter
+                sig_mask = scipy.signal.fftconvolve(
+                    sig_mask, self._smoothing_filter, mode="same"
+                )
+            
+            sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (1.0 - self._prop_decrease)
+
+
+            # multiply signal with mask
+            sig_stft_denoised = sig_stft * sig_mask
+
+
+            # invert/recover the signal
+            denoised_signal = librosa.istft(
+                sig_stft_denoised,
+                hop_length=self._hop_length,
+                win_length=self._win_length,
+            )
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
+        return denoised_channels
+
+    def _do_filter(self, chunk):
+        """Do the actual filtering"""
+        chunk_filtered = self.spectral_gating_nonstationary(chunk)
+
+        return chunk_filtered
+
+
+class SpectralGateStationary(SpectralGate):
+    def __init__(
+        self,
+        y, 
+        sr,  
+        y_noise,
+        n_std_thresh_stationary,
+        chunk_size,
+        clip_noise_stationary,
+        padding,
+        n_fft,
+        win_length,
+        hop_length,
+        time_constant_s,
+        freq_mask_smooth_hz,
+        time_mask_smooth_ms,
+        tmp_folder,
+        prop_decrease,
+        use_tqdm,
+        n_jobs
+    ):
+
+        super().__init__(
+            y=y, 
+            sr=sr,  
+            chunk_size=chunk_size,
+            padding=padding,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            time_constant_s=time_constant_s,
+            freq_mask_smooth_hz=freq_mask_smooth_hz,
+            time_mask_smooth_ms=time_mask_smooth_ms,
+            tmp_folder=tmp_folder,
+            prop_decrease=prop_decrease,
+            use_tqdm=use_tqdm,
+            n_jobs = n_jobs
         )
-        return False
-    return True
+
+        self.n_std_thresh_stationary = n_std_thresh_stationary
+
+        if y_noise is None:
+            self.y_noise = self.y
+
+        else:
+            y_noise = np.array(y_noise)
+            # reshape data to (#channels, #frames)
+            if len(y_noise.shape) == 1:
+                self.y_noise = np.expand_dims(y_noise, 0)
+            elif len(y.shape) > 2:
+                raise ValueError("Waveform must be in shape (# frames, # channels)")
+            else:
+                self.y_noise = y_noise
+        
+        # collapse y_noise to one channel
+        self.y_noise = np.mean(self.y_noise, axis=0)
+
+        if clip_noise_stationary:
+            self.y_noise = self.y_noise[:chunk_size]
+
+        # calculate statistics over y_noise
+        abs_noise_stft = np.abs(librosa.stft(
+                (self.y_noise),
+                n_fft=self._n_fft,
+                hop_length=self._hop_length,
+                win_length=self._win_length,
+            ))
+        noise_stft_db = _amp_to_db(abs_noise_stft) 
+        self.mean_freq_noise = np.mean(noise_stft_db, axis=1)
+        self.std_freq_noise = np.std(noise_stft_db, axis=1)
+
+        self.noise_thresh = self.mean_freq_noise + self.std_freq_noise * self.n_std_thresh_stationary
+
+    def spectral_gating_stationary(self, chunk):
+        """non-stationary version of spectral gating"""
+        denoised_channels = np.zeros(chunk.shape, chunk.dtype)
+        for ci, channel in enumerate(chunk):
+            sig_stft = librosa.stft(
+                (channel),
+                n_fft=self._n_fft,
+                hop_length=self._hop_length,
+                win_length=self._win_length,
+            )
+            
+            # spectrogram of signal in dB
+            sig_stft_db = _amp_to_db(np.abs(sig_stft))
+
+            # calculate the threshold for each frequency/time bin
+            db_thresh = np.repeat(
+                np.reshape(self.noise_thresh, [1, len(self.mean_freq_noise)]),
+                np.shape(sig_stft_db)[1],
+                axis=0,
+            ).T
+
+            # mask if the signal is above the threshold
+            sig_mask = sig_stft_db > db_thresh
+
+            sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (1.0 - self._prop_decrease)
+
+            if self.smooth_mask:
+                # convolve the mask with a smoothing filter
+                sig_mask = scipy.signal.fftconvolve(
+                    sig_mask, self._smoothing_filter, mode="same"
+                )
+
+            # multiply signal with mask
+            sig_stft_denoised = sig_stft * sig_mask
+
+            # invert/recover the signal
+            denoised_signal = librosa.istft(
+                sig_stft_denoised,
+                hop_length=self._hop_length,
+                win_length=self._win_length,
+            )
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
+        return denoised_channels
+
+    def _do_filter(self, chunk):
+        """Do the actual filtering"""
+        chunk_filtered = self.spectral_gating_stationary(chunk)
+
+        return chunk_filtered
+
 
 
 def reduce_noise(
-    audio_clip,
-    noise_clip,
-    n_grad_freq=2,
-    n_grad_time=4,
-    n_fft=2048,
-    win_length=2048,
-    hop_length=512,
-    n_std_thresh=1.5,
-    prop_decrease=1.0,
-    pad_clipping=True,
-    use_tensorflow=False,
-    verbose=False,
+    y, 
+    sr, 
+    stationary=False,
+    y_noise = None,
+    prop_decrease = 1.0,
+    time_constant_s=2.0,
+    freq_mask_smooth_hz=500,
+    time_mask_smooth_ms=50,
+    thresh_n_mult_nonstationary=2,
+    sigmoid_slope_nonstationary=10,
+    n_std_thresh_stationary = 1.5,
+    tmp_folder=None,
+    chunk_size=600000,
+    padding=30000,
+    n_fft=1024,
+    win_length=None,
+    hop_length=None,
+    clip_noise_stationary = True,
+    use_tqdm=False,
+    n_jobs = 1
 ):
-    """Remove noise from audio based upon a clip containing only noise
-
-    Args:
-        audio_clip (array): The first parameter.
-        noise_clip (array): The second parameter.
-        n_grad_freq (int): how many frequency channels to smooth over with the mask.
-        n_grad_time (int): how many time channels to smooth over with the mask.
-        n_fft (int): number audio of frames between STFT columns.
-        win_length (int): Each frame of audio is windowed by `window()`. The window will be of length `win_length` and then padded with zeros to match `n_fft`..
-        hop_length (int):number audio of frames between STFT columns.
-        n_std_thresh (int): how many standard deviations louder than the mean dB of the noise (at each frequency level) to be considered signal
-        prop_decrease (float): To what extent should you decrease noise (1 = all, 0 = none)
-        pad_clipping (bool): Pad the signals with zeros to ensure that the reconstructed data is equal length to the data
-        use_tensorflow (bool): Use tensorflow as a backend for convolution and fft to speed up computation
-        verbose (bool): Whether to plot the steps of the algorithm
-
-    Returns:
-        array: The recovered signal with noise subtracted
-
     """
-    # load tensorflow if you are using it as a backend
-    if use_tensorflow:
-        use_tensorflow = load_tensorflow(verbose)
+    Reduce noise via spectral gating.
 
-    if verbose:
-        pbar = tqdm(total=7)
+    Parameters
+    ----------
+    y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
+        input signal
+    sr : int
+        sample rate of input signal / noise signal
+    y_noise : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
+        noise signal to compute statistics over (only for non-stationary noise reduction).
+    stationary : bool, optional
+        Whether to perform stationary, or non-stationary noise reduction, by default False
+    prop_decrease : float, optional
+        The proportion to reduce the noise by (1.0 = 100%), by default 1.0
+    time_constant_s : float, optional
+        The time constant, in seconds, to compute the noise floor in the non-stationary
+        algorithm, by default 2.0
+    freq_mask_smooth_hz : int, optional
+        The frequency range to smooth the mask over in Hz, by default 500
+    time_mask_smooth_ms : int, optional
+        The time range to smooth the mask over in milliseconds, by default 50
+    thresh_n_mult_nonstationary : int, optional
+        Only used in nonstationary noise reduction., by default 1
+    sigmoid_slope_nonstationary : int, optional
+        Only used in nonstationary noise reduction., by default 10
+    n_std_thresh_stationary : int, optional
+        Number of standard deviations above mean to place the threshold between
+        signal and noise., by default 1.5
+    tmp_folder : [type], optional
+        Temp folder to write waveform to during parallel processing. Defaults to 
+        default temp folder for python., by default None
+    chunk_size : int, optional
+        Size of signal chunks to reduce noise over. Larger sizes
+        will take more space in memory, smaller sizes can take longer to compute.
+        , by default 60000
+        padding : int, optional
+        How much to pad each chunk of signal by. Larger pads are
+        needed for larger time constants., by default 30000
+    n_fft : int, optional
+        length of the windowed signal after padding with zeros.
+        The number of rows in the STFT matrix ``D`` is ``(1 + n_fft/2)``.
+        The default value, ``n_fft=2048`` samples, corresponds to a physical
+        duration of 93 milliseconds at a sample rate of 22050 Hz, i.e. the
+        default sample rate in librosa. This value is well adapted for music
+        signals. However, in speech processing, the recommended value is 512,
+        corresponding to 23 milliseconds at a sample rate of 22050 Hz.
+        In any case, we recommend setting ``n_fft`` to a power of two for
+        optimizing the speed of the fast Fourier transform (FFT) algorithm., by default 1024
+    win_length : [type], optional
+        Each frame of audio is windowed by ``window`` of length ``win_length``
+        and then padded with zeros to match ``n_fft``.
+        Smaller values improve the temporal resolution of the STFT (i.e. the
+        ability to discriminate impulses that are closely spaced in time)
+        at the expense of frequency resolution (i.e. the ability to discriminate
+        pure tones that are closely spaced in frequency). This effect is known
+        as the time-frequency localization trade-off and needs to be adjusted
+        according to the properties of the input signal ``y``.
+        If unspecified, defaults to ``win_length = n_fft``., by default None
+    hop_length : [type], optional
+        number of audio samples between adjacent STFT columns.
+        Smaller values increase the number of columns in ``D`` without
+        affecting the frequency resolution of the STFT.
+        If unspecified, defaults to ``win_length // 4`` (see below)., by default None
+    use_tqdm : bool, optional
+        Whether to show tqdm progress bar, by default False
+    n_jobs : int, optional
+        Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
+    """
+    if stationary:
+        sg = SpectralGateStationary(
+            y=y, 
+            sr=sr, 
+            y_noise = y_noise,
+            prop_decrease =prop_decrease,
+            n_std_thresh_stationary = n_std_thresh_stationary,
+            chunk_size=chunk_size,
+            clip_noise_stationary = clip_noise_stationary,
+            padding=padding,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            time_constant_s=time_constant_s,
+            freq_mask_smooth_hz=freq_mask_smooth_hz,
+            time_mask_smooth_ms=time_mask_smooth_ms,
+            tmp_folder=tmp_folder,
+            use_tqdm=use_tqdm,
+            n_jobs = n_jobs
+        )
+
     else:
-        pbar = None
-
-    update_pbar(pbar, "STFT on noise")
-    # STFT over noise
-    noise_stft = _stft(
-        noise_clip, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow
-    )
-    noise_stft_db = _amp_to_db(np.abs(noise_stft))  # convert to dB
-    # Calculate statistics over noise
-    update_pbar(pbar, "STFT on signal")
-    mean_freq_noise = np.mean(noise_stft_db, axis=1)
-    std_freq_noise = np.std(noise_stft_db, axis=1)
-    noise_thresh = mean_freq_noise + std_freq_noise * n_std_thresh
-    # STFT over signal
-    update_pbar(pbar, "STFT on signal")
-
-    # pad signal with zeros to avoid extra frames being clipped if desired
-    if pad_clipping:
-        nsamp = len(audio_clip)
-        audio_clip = np.pad(audio_clip, [0, hop_length], mode="constant")
-
-    sig_stft = _stft(
-        audio_clip, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow
-    )
-    # spectrogram of signal in dB
-    sig_stft_db = _amp_to_db(np.abs(sig_stft))
-    update_pbar(pbar, "Generate mask")
-
-    # calculate the threshold for each frequency/time bin
-    db_thresh = np.repeat(
-        np.reshape(noise_thresh, [1, len(mean_freq_noise)]),
-        np.shape(sig_stft_db)[1],
-        axis=0,
-    ).T
-    # mask if the signal is above the threshold
-    sig_mask = sig_stft_db < db_thresh
-    update_pbar(pbar, "Smooth mask")
-    # Create a smoothing filter for the mask in time and frequency
-    smoothing_filter = _smoothing_filter(n_grad_freq, n_grad_time)
-
-    # convolve the mask with a smoothing filter
-    sig_mask = convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow)
-
-    sig_mask = sig_mask * prop_decrease
-    update_pbar(pbar, "Apply mask")
-    # mask the signal
-
-    sig_stft_amp = mask_signal(sig_stft, sig_mask)
-
-    update_pbar(pbar, "Recover signal")
-    # recover the signal
-    recovered_signal = _istft(
-        sig_stft_amp, n_fft, hop_length, win_length, use_tensorflow=use_tensorflow
-    )
-    # fix the recovered signal length if padding signal
-    if pad_clipping:
-        recovered_signal = librosa.util.fix_length(recovered_signal, nsamp)
-
-    recovered_spec = _amp_to_db(
-        np.abs(
-            _stft(
-                recovered_signal,
-                n_fft,
-                hop_length,
-                win_length,
-                use_tensorflow=use_tensorflow,
-            )
+        sg = SpectralGateNonStationary(
+            y=y, 
+            sr=sr, 
+            chunk_size=chunk_size,
+            padding=padding,
+            prop_decrease =prop_decrease,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            time_constant_s=time_constant_s,
+            freq_mask_smooth_hz=freq_mask_smooth_hz,
+            time_mask_smooth_ms=time_mask_smooth_ms,
+            thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
+            sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
+            tmp_folder=tmp_folder,
+            use_tqdm=use_tqdm,
+            n_jobs = n_jobs
         )
-    )
-    if verbose:
-        plot_reduction_steps(
-            noise_stft_db,
-            mean_freq_noise,
-            std_freq_noise,
-            noise_thresh,
-            smoothing_filter,
-            sig_stft_db,
-            sig_mask,
-            recovered_spec,
-        )
-    return recovered_signal
+    return sg.get_traces()
+
+def _amp_to_db(x):
+    return librosa.core.amplitude_to_db(x, ref=1.0, amin=1e-20, top_db=80.0)
+
+
+def _db_to_amp(x,):
+    return librosa.core.db_to_amplitude(x, ref=1.0)
