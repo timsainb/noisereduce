@@ -2,13 +2,7 @@ from scipy.io import wavfile
 import noisereduce as nr
 from noisereduce.generate_noise import band_limited_noise
 from noisereduce.utils import int16_to_float32, float32_to_int16
-    """
-    tests
-    - stationary noise reduction with band limited noise
-    - nonstationary noise reduction with band limited noise
-    - stationary noise reduction with noise clip
-    - reduce long clip in chunks
-    """
+
 
 def test_reduce_generated_noise_stationary_with_noise_clip():
     # load data
