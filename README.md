@@ -6,24 +6,50 @@
 
 
 # Noise reduction in python using spectral gating
+Noisereduce is a noise reduction algorithm in python that reduces noise in time-domain signals like speech, bioacoustics, and physiological signals. It relies on a method called "spectral gating" which is a form of [Noise Gate][https://en.wikipedia.org/wiki/Noise_gate]. It works by computing a spectrogram of a signal (and optionally a noise signal) and estimating a noise threshold (or gate) for each frequency band of that signal/noise. That threshold is used to compute a mask, which gates noise below the frequency-varying threshold. 
+
+The most recent version of noisereduce comprises two algorithms:
+1. Stationary Noise Reduction: Keeps the estimated noise threshold at the same level across the whole signal
+2. Non-stationary Noise Reduction: Continuously updates the estimated noise threshold over time
+
+## Version 2 Updates:
+- Added two forms of spectral gating noise reduction: stationary noise reduction, and non-stationary noise reduction. 
+- Added multiprocessing so you can perform noise reduction on bigger data.
+- The new version breaks the API of the old version. 
+- The previous version is still available at `from noisereduce.noisereducev1 import reduce_noise`
+
+
+## Stationary Noise Reduction
+- The basic intuition is that statistics are calculated on  each frequency channel to determine a noise gate. Then the gate is applied to the signal.
 - This algorithm is based (but not completely reproducing) on the one [outlined by Audacity](https://wiki.audacityteam.org/wiki/How_Audacity_Noise_Reduction_Works) for the **noise reduction effect** ([Link to C++ code](https://github.com/audacity/audacity/blob/master/src/effects/NoiseReduction.cpp))
 - The algorithm takes two inputs: 
-    1. A *noise* audio clip containing prototypical noise of the audio clip (optional)
-    2. A *signal* audio clip containing the signal and the noise intended to be removed
+    1. A *noise* clip containing prototypical noise of clip (optional)
+    2. A *signal* clip containing the signal and the noise intended to be removed
 
-## Steps of algorithm
-1. An FFT is calculated over the noise audio clip
-2. Statistics are calculated over FFT of the the noise (in frequency)
+### Steps of the Stationary Noise Reduction algorithm
+1. A spectrogram is calculated over the noise audio clip
+2. Statistics are calculated over spectrogram of the the noise (in frequency)
 3. A threshold is calculated based upon the statistics of the noise (and the desired sensitivity of the algorithm) 
-4. An FFT is calculated over the signal
-5. A mask is determined by comparing the signal FFT to the threshold
+4. A spectrogram is calculated over the signal
+5. A mask is determined by comparing the signal spectrogram to the threshold
 6. The mask is smoothed with a filter over frequency and time
-7. The mask is appled to the FFT of the signal, and is inverted
+7. The mask is appled to the spectrogram of the signal, and is inverted
+*If the noise signal is not provided, the algorithm will treat the signal as the noise clip, which tends to work pretty well*
+
+## Non-stationary Noise Reduction
+- The non-stationary noise reduction algorithm is an extension of the stationary noise reduction algorithm, but allowing the noise gate to change over time. 
+- When you know the timescale that your signal occurs on (e.g. a bird call can be a few hundred milliseconds), you can set your noise threshold based on the assumption that events occuring on longer timescales are noise. 
+- This algorithm was motivated by a recent method in bioacoustics called Per-Channel Energy Normalization. 
+
+### Steps of the Non-stationary Noise Reduction algorithm
+1. A spectrogram is calculated over the signal
+2. A time-smoothed version of the spectrogram is computed using an IIR filter aplied forward and backward on each frequency channel.
+3. A mask is computed based on that time-smoothed spectrogram
+4. The mask is smoothed with a filter over frequency and time
+5. The mask is appled to the spectrogram of the signal, and is inverted
 
 ## Installation
 `pip install noisereduce`
-
-*noisereduce optionally uses Tensorflow as a backend to speed up FFT and gaussian convolution. It is not listed in the requirements.txt so because (1) it is optional and (2) tensorflow-gpu and tensorflow (cpu) are both compatible with this package. The package requires Tensorflow 2+ for all tensorflow operations.* 
 
 ## Usage
 See example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/1.0-test-noise-reduction.ipynb)
@@ -35,22 +61,74 @@ rate, data = wavfile.read("mywav.wav")
 # select section of data that is noise
 noisy_part = data[10000:15000]
 # perform noise reduction
-reduced_noise = nr.reduce_noise(audio_clip=data, noise_clip=noisy_part, verbose=True)
+reduced_noise = nr.reduce_noise(y=data)
 ```
 
-### Arguments to `noise_reduce`
+### Arguments to `reduce_noise`
 ```
-n_grad_freq (int): how many frequency channels to smooth over with the mask.
-n_grad_time (int): how many time channels to smooth over with the mask.
-n_fft (int): number audio of frames between STFT columns.
-win_length (int): Each frame of audio is windowed by `window()`. The window will be of length `win_length` and then padded with zeros to match `n_fft`..
-hop_length (int):number audio of frames between STFT columns.
-n_std_thresh (int): how many standard deviations louder than the mean dB of the noise (at each frequency level) to be considered signal
-prop_decrease (float): To what extent should you decrease noise (1 = all, 0 = none)
-pad_clipping (bool): Pad the signals with zeros to ensure that the reconstructed data is equal length to the data
-        use_tensorflow (bool): Use tensorflow as a backend for convolution and fft to speed up computation
-verbose (bool): Whether to plot the steps of the algorithm
+y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
+    input signal
+sr : int
+    sample rate of input signal / noise signal
+y_noise : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
+    noise signal to compute statistics over (only for non-stationary noise reduction).
+stationary : bool, optional
+    [description], by default False
+prop_decrease : float, optional
+    [description], by default 1.0
+time_constant_s : float, optional
+    [description], by default 2.0
+freq_mask_smooth_hz : int, optional
+    [description], by default 500
+time_mask_smooth_ms : int, optional
+    [description], by default 50
+thresh_n_mult_nonstationary : int, optional
+    Only used in nonstationary noise reduction., by default 1
+sigmoid_slope_nonstationary : int, optional
+    Only used in nonstationary noise reduction., by default 10
+n_std_thresh_stationary : int, optional
+    Number of standard deviations above mean to place the threshold between
+    signal and noise., by default 1.5
+tmp_folder : [type], optional
+    Temp folder to write waveform to during parallel processing. Defaults to 
+    default temp folder for python., by default None
+chunk_size : int, optional
+    Size of signal chunks to reduce noise over. Larger sizes
+    will take more space in memory, smaller sizes can take longer to compute.
+    , by default 60000
+    padding : int, optional
+    How much to pad each chunk of signal by. Larger pads are
+    needed for larger time constants., by default 30000
+n_fft : int, optional
+    length of the windowed signal after padding with zeros.
+    The number of rows in the STFT matrix ``D`` is ``(1 + n_fft/2)``.
+    The default value, ``n_fft=2048`` samples, corresponds to a physical
+    duration of 93 milliseconds at a sample rate of 22050 Hz, i.e. the
+    default sample rate in librosa. This value is well adapted for music
+    signals. However, in speech processing, the recommended value is 512,
+    corresponding to 23 milliseconds at a sample rate of 22050 Hz.
+    In any case, we recommend setting ``n_fft`` to a power of two for
+    optimizing the speed of the fast Fourier transform (FFT) algorithm., by default 1024
+win_length : [type], optional
+    Each frame of audio is windowed by ``window`` of length ``win_length``
+    and then padded with zeros to match ``n_fft``.
+    Smaller values improve the temporal resolution of the STFT (i.e. the
+    ability to discriminate impulses that are closely spaced in time)
+    at the expense of frequency resolution (i.e. the ability to discriminate
+    pure tones that are closely spaced in frequency). This effect is known
+    as the time-frequency localization trade-off and needs to be adjusted
+    according to the properties of the input signal ``y``.
+    If unspecified, defaults to ``win_length = n_fft``., by default None
+hop_length : [type], optional
+    number of audio samples between adjacent STFT columns.
+    Smaller values increase the number of columns in ``D`` without
+    affecting the frequency resolution of the STFT.
+    If unspecified, defaults to ``win_length // 4`` (see below)., by default None
+n_jobs : int, optional
+    Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
 ```
+
+
 <div style="text-align:center">
 <p align="center">
   <img src="assets/noisereduce.png", width="100%">
@@ -70,9 +148,8 @@ If you use this code in your research, please cite it:
   doi          = {10.5281/zenodo.3243139},
   url          = {https://doi.org/10.5281/zenodo.3243139}
 }
-```
-or 
-```
+
+
 @article{sainburg2020finding,
   title={Finding, visualizing, and quantifying latent structure across diverse animal vocal repertoires},
   author={Sainburg, Tim and Thielk, Marvin and Gentner, Timothy Q},
