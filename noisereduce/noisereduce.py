@@ -480,15 +480,16 @@ def reduce_noise(
     y_noise : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
         noise signal to compute statistics over (only for non-stationary noise reduction).
     stationary : bool, optional
-        [description], by default False
+        Whether to perform stationary, or non-stationary noise reduction, by default False
     prop_decrease : float, optional
-        [description], by default 1.0
+        The proportion to reduce the noise by (1.0 = 100%), by default 1.0
     time_constant_s : float, optional
-        [description], by default 2.0
+        The time constant, in seconds, to compute the noise floor in the non-stationary
+        algorithm, by default 2.0
     freq_mask_smooth_hz : int, optional
-        [description], by default 500
+        The frequency range to smooth the mask over in Hz, by default 500
     time_mask_smooth_ms : int, optional
-        [description], by default 50
+        The time range to smooth the mask over in milliseconds, by default 50
     thresh_n_mult_nonstationary : int, optional
         Only used in nonstationary noise reduction., by default 1
     sigmoid_slope_nonstationary : int, optional
