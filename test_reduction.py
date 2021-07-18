@@ -83,7 +83,7 @@ def test_reduce_generated_noise_batches():
 
 
 ### Tests for V1
-
+import noisereduce.noisereduce.noisereducev1 as nrv1
 
 def test_reduce_generated_noise():
     # load data
@@ -100,7 +100,7 @@ def test_reduce_generated_noise():
     )
     noise_clip = noise[: rate * noise_len]
     audio_clip_band_limited = data + noise
-    return nr.reduce_noise(
+    return nrv1.reduce_noise(
         audio_clip=audio_clip_band_limited, noise_clip=noise_clip, verbose=True
     )
 
@@ -119,7 +119,7 @@ def test_reduce_cafe_noise():
     audio_clip_cafe = data + noise_clip
 
     # reduce noise
-    reduced_noise = nr.reduce_noise(
+    reduced_noise = nrv1.reduce_noise(
         audio_clip=audio_clip_cafe, noise_clip=noise_clip, verbose=True
     )
     return float32_to_int16(reduced_noise)
@@ -139,7 +139,7 @@ def test_reduce_cafe_noise_tf():
     audio_clip_cafe = data + noise_clip
 
     # reduce noise
-    reduced_noise = nr.reduce_noise(
+    reduced_noise = nrv1.reduce_noise(
         audio_clip=audio_clip_cafe,
         noise_clip=noise_clip,
         use_tensorflow=True,
