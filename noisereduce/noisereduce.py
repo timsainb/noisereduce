@@ -64,6 +64,7 @@ class SpectralGate:
         freq_mask_smooth_hz,
         time_mask_smooth_ms,
         tmp_folder,
+        use_tqdm,
         n_jobs
     ):
         self.sr = sr
@@ -87,6 +88,7 @@ class SpectralGate:
         self.padding = padding
         self.n_jobs = n_jobs
 
+        self.use_tqdm = use_tqdm
         # where to create a temp file for parallel
         # writing
         self._tmp_folder = tmp_folder
@@ -219,14 +221,19 @@ class SpectralGate:
                     
                     Parallel(n_jobs=self.n_jobs)(delayed(self._iterate_chunk)(filtered_chunk, pos, end0, start0, ich)
                        for pos, start0, end0, ich in zip(
-                        tqdm(pos_list), start_list, end_list, range(ich1, ich2 + 1)
+                        tqdm(pos_list, disable=self.use_tqdm), start_list, end_list, range(ich1, ich2 + 1)
                     )
                    )
-
-                    return filtered_chunk.astype(self._dtype).flatten()
+                    if self.flat:
+                        return filtered_chunk.astype(self._dtype).flatten()
+                    else:
+                        return filtered_chunk.astype(self._dtype)
 
         filtered_chunk = self.filter_chunk(start_frame=0, end_frame=end_frame)
-        return filtered_chunk.astype(self._dtype).flatten()
+        if self.flat:
+            return filtered_chunk.astype(self._dtype).flatten()
+        else:
+            return filtered_chunk.astype(self._dtype)
 
 
 class SpectralGateNonStationary(SpectralGate):
@@ -246,6 +253,7 @@ class SpectralGateNonStationary(SpectralGate):
         sigmoid_slope_nonstationary,
         tmp_folder,
         prop_decrease,
+        use_tqdm,
         n_jobs
     ):
         
@@ -265,6 +273,7 @@ class SpectralGateNonStationary(SpectralGate):
             time_mask_smooth_ms=time_mask_smooth_ms,
             tmp_folder=tmp_folder,
             prop_decrease=prop_decrease,
+            use_tqdm=use_tqdm,
             n_jobs = n_jobs
         )
 
@@ -302,11 +311,13 @@ class SpectralGateNonStationary(SpectralGate):
                 sig_mask = scipy.signal.fftconvolve(
                     sig_mask, self._smoothing_filter, mode="same"
                 )
+            
+            sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (1.0 - self._prop_decrease)
+
 
             # multiply signal with mask
             sig_stft_denoised = sig_stft * sig_mask
 
-            sig_mask = sig_mask * self._prop_decrease
 
             # invert/recover the signal
             denoised_signal = librosa.istft(
@@ -342,6 +353,7 @@ class SpectralGateStationary(SpectralGate):
         time_mask_smooth_ms,
         tmp_folder,
         prop_decrease,
+        use_tqdm,
         n_jobs
     ):
 
@@ -358,6 +370,7 @@ class SpectralGateStationary(SpectralGate):
             time_mask_smooth_ms=time_mask_smooth_ms,
             tmp_folder=tmp_folder,
             prop_decrease=prop_decrease,
+            use_tqdm=use_tqdm,
             n_jobs = n_jobs
         )
 
@@ -419,7 +432,7 @@ class SpectralGateStationary(SpectralGate):
             # mask if the signal is above the threshold
             sig_mask = sig_stft_db > db_thresh
 
-            sig_mask = sig_mask * self._prop_decrease
+            sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (1.0 - self._prop_decrease)
 
             if self.smooth_mask:
                 # convolve the mask with a smoothing filter
@@ -466,6 +479,7 @@ def reduce_noise(
     win_length=None,
     hop_length=None,
     clip_noise_stationary = True,
+    use_tqdm=False,
     n_jobs = 1
 ):
     """
@@ -532,6 +546,8 @@ def reduce_noise(
         Smaller values increase the number of columns in ``D`` without
         affecting the frequency resolution of the STFT.
         If unspecified, defaults to ``win_length // 4`` (see below)., by default None
+    use_tqdm : bool, optional
+        Whether to show tqdm progress bar, by default False
     n_jobs : int, optional
         Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
     """
@@ -552,6 +568,7 @@ def reduce_noise(
             freq_mask_smooth_hz=freq_mask_smooth_hz,
             time_mask_smooth_ms=time_mask_smooth_ms,
             tmp_folder=tmp_folder,
+            use_tqdm=use_tqdm,
             n_jobs = n_jobs
         )
 
@@ -571,6 +588,7 @@ def reduce_noise(
             thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
             sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
             tmp_folder=tmp_folder,
+            use_tqdm=use_tqdm,
             n_jobs = n_jobs
         )
     return sg.get_traces()

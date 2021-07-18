@@ -22,7 +22,7 @@ The most recent version of noisereduce comprises two algorithms:
 - Added multiprocessing so you can perform noise reduction on bigger data.
 - The new version breaks the API of the old version. 
 - The previous version is still available at `from noisereduce.noisereducev1 import reduce_noise`
-
+- You can now create a noisereduce object which allows you to reduce noise on subsets of longer recordings
 
 # Stationary Noise Reduction
 - The basic intuition is that statistics are calculated on  each frequency channel to determine a noise gate. Then the gate is applied to the signal.
