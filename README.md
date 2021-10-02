@@ -62,6 +62,7 @@ See example notebook: [![Open In Colab](https://colab.research.google.com/assets
 
 ### Simplest usage
 ```
+from scipy.io import wavfile
 import noisereduce as nr
 # load data
 rate, data = wavfile.read("mywav.wav")
