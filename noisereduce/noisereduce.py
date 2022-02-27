@@ -102,6 +102,9 @@ class SpectralGate:
             self._win_length = win_length
         if hop_length is None:
             self._hop_length = self._win_length // 4
+        else:
+            self._hop_length = hop_length
+        
         self._time_constant_s = time_constant_s
 
         self._prop_decrease = prop_decrease
