@@ -68,7 +68,7 @@ import noisereduce as nr
 rate, data = wavfile.read("mywav.wav")
 # perform noise reduction
 reduced_noise = nr.reduce_noise(y=data, sr=rate)
-wavefile.write("mywav_reduced_noise.wav", rate, reduced_noise)
+wavfile.write("mywav_reduced_noise.wav", rate, reduced_noise)
 ```
 
 ### Arguments to `reduce_noise`
