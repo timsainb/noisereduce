@@ -224,7 +224,7 @@ class SpectralGate:
                     
                     Parallel(n_jobs=self.n_jobs)(delayed(self._iterate_chunk)(filtered_chunk, pos, end0, start0, ich)
                        for pos, start0, end0, ich in zip(
-                        tqdm(pos_list, disable=self.use_tqdm), start_list, end_list, range(ich1, ich2 + 1)
+                        tqdm(pos_list, disable=not(self.use_tqdm)), start_list, end_list, range(ich1, ich2 + 1)
                     )
                    )
                     if self.flat:
