@@ -136,12 +136,33 @@ y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
       Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
 ```
 
+### Choosing between Stationary and non-stantionary noise reduction 
 
+I discuss stationary and non-stationary noise reduction in [this paper](https://www.frontiersin.org/articles/10.3389/fnbeh.2021.811737/full). 
 
+<div style="text-align:center">
+<p align="center">
+  <img src="assets/stationary-vs-nonstationary.jpg", width="100%">
+</p>
+</div>
+
+*Figure caption: Stationary and non-stationary spectral gating noise reduction. (A) An overview of each algorithm. Stationary noise reduction typically takes in an explicit noise signal to calculate statistics and performs noise reduction over the entire signal uniformly. Non-stationary noise reduction dynamically estimates and reduces noise concurrently. (B) Stationary and non-stationary spectral gating noise reduction using the noisereduce Python package (Sainburg, 2019) applied to a Common chiffchaff (Phylloscopus collybita) song (Stowell et al., 2019) with an airplane noise in the background. The bottom frame depicts the difference between the two algorithms.*
 
 ### Citation
 If you use this code in your research, please cite it:
 ```
+
+@article{sainburg2020finding,
+  title={Finding, visualizing, and quantifying latent structure across diverse animal vocal repertoires},
+  author={Sainburg, Tim and Thielk, Marvin and Gentner, Timothy Q},
+  journal={PLoS computational biology},
+  volume={16},
+  number={10},
+  pages={e1008228},
+  year={2020},
+  publisher={Public Library of Science}
+}
+
 @software{tim_sainburg_2019_3243139,
   author       = {Tim Sainburg},
   title        = {timsainb/noisereduce: v1.0},
@@ -154,16 +175,6 @@ If you use this code in your research, please cite it:
 }
 
 
-@article{sainburg2020finding,
-  title={Finding, visualizing, and quantifying latent structure across diverse animal vocal repertoires},
-  author={Sainburg, Tim and Thielk, Marvin and Gentner, Timothy Q},
-  journal={PLoS computational biology},
-  volume={16},
-  number={10},
-  pages={e1008228},
-  year={2020},
-  publisher={Public Library of Science}
-}
 ```
 --------
 
