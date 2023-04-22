@@ -41,12 +41,15 @@ def run_tg_with_noisereduce(y,
             y_noise = y_noise[:y.shape[-1]]
         y_noise = torch.from_numpy(y_noise).to(device)
 
+    if hop_length is None:
+        hop_length = n_fft // 4
+
     tg = TG(sr=sr,
             nonstationary=not stationary,
             n_std_thresh_stationary=n_std_thresh_stationary,
             n_thresh_nonstationary=thresh_n_mult_nonstationary,
             temp_coeff_nonstationary=1 / sigmoid_slope_nonstationary,
-            n_movemean_nonstationary=int(time_constant_s * sr),
+            n_movemean_nonstationary=int(time_constant_s / hop_length * sr),
             prop_decrease=prop_decrease,
             n_fft=n_fft,
             win_length=win_length,

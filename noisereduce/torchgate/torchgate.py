@@ -107,8 +107,14 @@ class TorchGate(torch.nn.Module):
             are set to 1, and the rest are set to 0.
         """
         if xn is not None:
-            XN = torch.stft(xn, n_fft=self.n_fft, hop_length=self.hop_length, win_length=self.win_length,
-                            return_complex=True, pad_mode='constant', center=True)
+            XN = torch.stft(xn,
+                            n_fft=self.n_fft,
+                            hop_length=self.hop_length,
+                            win_length=self.win_length,
+                            return_complex=True,
+                            pad_mode='constant',
+                            center=True,
+                            window=torch.hann_window(self.win_length).to(xn.device))
 
             XN_db = amp_to_db(XN).to(dtype=X_db.dtype)
         else:
