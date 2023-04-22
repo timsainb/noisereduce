@@ -94,6 +94,10 @@ def reduce_noise(
         Whether to show tqdm progress bar, by default False
     n_jobs : int, optional
         Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
+    torch_flag: bool, optional
+        Whether to use the torch version of spectral gating, by default False
+    device: str, optional
+        A device to run the torch spectral gating on, by default "cuda"
     """
 
     if torch_flag:
