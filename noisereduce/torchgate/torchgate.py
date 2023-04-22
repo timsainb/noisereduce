@@ -4,7 +4,7 @@ from typing import Union, Optional
 from .utils import linspace, temperature_sigmoid, amp_to_db
 
 
-class TorchGating(torch.nn.Module):
+class TorchGate(torch.nn.Module):
     """
     A PyTorch module that applies a spectral gate to an input signal.
 
@@ -91,7 +91,7 @@ class TorchGating(torch.nn.Module):
         v_t = torch.cat([linspace(0, 1, n_grad_time + 1, endpoint=False), linspace(1, 0, n_grad_time + 2)])[1:-1]
         smoothing_filter = torch.outer(v_f, v_t).unsqueeze(0).unsqueeze(0)
 
-        return smoothing_filter
+        return smoothing_filter / smoothing_filter.sum()
 
     @torch.no_grad()
     def _stationary_mask(self, X_db: torch.Tensor, xn: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -175,7 +175,8 @@ class TorchGating(torch.nn.Module):
             win_length=self.win_length,
             return_complex=True,
             pad_mode='constant',
-            center=True
+            center=True,
+            window=torch.hann_window(self.win_length).to(x.device)
         )
 
         # Compute signal mask based on stationary or nonstationary assumptions
@@ -192,7 +193,7 @@ class TorchGating(torch.nn.Module):
             sig_mask = conv2d(sig_mask.unsqueeze(1), self.smoothing_filter.to(sig_mask.dtype), padding='same')
 
         # Apply signal mask to STFT magnitude and phase components
-        Y = X.abs() * sig_mask.squeeze(1) * torch.exp(1j * X.angle())
+        Y = X * sig_mask.squeeze(1)
 
         # Inverse STFT to obtain time-domain signal
         y = torch.istft(
@@ -200,7 +201,8 @@ class TorchGating(torch.nn.Module):
             n_fft=self.n_fft,
             hop_length=self.hop_length,
             win_length=self.win_length,
-            center=True
+            center=True,
+            window=torch.hann_window(self.win_length).to(Y.device)
         )
 
         return y.to(dtype=x.dtype)

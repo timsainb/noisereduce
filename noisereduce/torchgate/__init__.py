@@ -11,4 +11,4 @@ torchgate imports all the functions from PyTorch, and in addition provides:
 """
 
 from .run_with_noisereduce import run_tg_with_noisereduce
-from .torchgate import TorchGating
+from .torchgate import TorchGate

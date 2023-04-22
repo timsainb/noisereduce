@@ -4,7 +4,7 @@ from librosa import stft, istft
 from scipy.signal import filtfilt, fftconvolve
 import tempfile
 from tqdm.auto import tqdm
-from utils import sigmoid, _amp_to_db
+from .utils import sigmoid, _amp_to_db
 
 
 def get_time_smoothed_representation(

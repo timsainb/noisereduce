@@ -1,5 +1,5 @@
-from spectralgate import SpectralGateNonStationary, SpectralGateStationary
-from torchgate import run_tg_with_noisereduce
+from .spectralgate import SpectralGateNonStationary, SpectralGateStationary
+from .torchgate import run_tg_with_noisereduce
 
 
 def reduce_noise(
@@ -97,22 +97,22 @@ def reduce_noise(
     """
 
     if torch_flag:
-        return run_tg_with_noisereduce(y,
-                                       sr,
-                                       stationary,
-                                       device,
-                                       y_noise,
-                                       prop_decrease,
-                                       n_std_thresh_stationary,
-                                       n_fft,
-                                       win_length,
-                                       hop_length,
-                                       time_constant_s,
-                                       freq_mask_smooth_hz,
-                                       time_mask_smooth_ms,
-                                       thresh_n_mult_nonstationary,
-                                       sigmoid_slope_nonstationary,
-                                       clip_noise_stationary
+        return run_tg_with_noisereduce(y=y,
+                                       sr=sr,
+                                       stationary=stationary,
+                                       device=device,
+                                       y_noise=y_noise,
+                                       prop_decrease=prop_decrease,
+                                       n_std_thresh_stationary=n_std_thresh_stationary,
+                                       n_fft=n_fft,
+                                       win_length=win_length,
+                                       hop_length=hop_length,
+                                       time_constant_s=time_constant_s,
+                                       freq_mask_smooth_hz=freq_mask_smooth_hz,
+                                       time_mask_smooth_ms=time_mask_smooth_ms,
+                                       thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
+                                       sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
+                                       clip_noise_stationary=clip_noise_stationary
                                        )
     else:
         if stationary:

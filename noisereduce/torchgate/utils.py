@@ -3,7 +3,7 @@ from torch.types import Number
 
 
 @torch.no_grad()
-def amp_to_db(x: torch.Tensor, eps=torch.finfo(torch.float32).eps) -> torch.Tensor:
+def amp_to_db(x: torch.Tensor, eps=torch.finfo(torch.float64).eps, top_db=40) -> torch.Tensor:
     """
     Convert the input tensor from amplitude to decibel scale.
 
@@ -12,12 +12,15 @@ def amp_to_db(x: torch.Tensor, eps=torch.finfo(torch.float32).eps) -> torch.Tens
 
     Keyword Arguments:
         eps {[float]} -- [Small value to avoid numerical instability.]
-                          (default: {torch.finfo(torch.float32).eps})
+                          (default: {torch.finfo(torch.float64).eps})
+        top_db {[float]} -- [threshold the output at ``top_db`` below the peak]
+            `             (default: {40})
 
     Returns:
         [torch.Tensor] -- [Output tensor in decibel scale.]
     """
-    return torch.log10(x.abs() + eps)
+    x_db = 20 * torch.log10(x.abs() + eps)
+    return torch.max(x_db, (x_db.max(-1).values - top_db).unsqueeze(-1))
 
 
 @torch.no_grad()

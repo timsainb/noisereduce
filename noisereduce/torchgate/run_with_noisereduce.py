@@ -1,4 +1,3 @@
-from . import TorchGating as TG
 import torch
 import numpy as np
 
@@ -23,16 +22,21 @@ def run_tg_with_noisereduce(y,
     '''
     Run interface with noisereduce so that torch is not a necessary requirement for noisereduce.
     '''
+    from . import TorchGate as TG
+
     device = torch.device(device) if torch.cuda.is_available() else torch.device(device)
 
-    y_type = y.dtype
-    assert y_type.dtype is np.ndarray or torch.Tensor
-    assert y_noise.dtype is y_type or y_type is None
+    y_type = type(y)
+    assert y_type is np.ndarray or torch.Tensor
+    assert type(y_noise) is y_type or y_noise is None
 
     if y_type is np.ndarray:
         y = torch.from_numpy(y).to(device)
+    y_ndim = y.ndim
+    if y_ndim == 1:
+        y = y.unsqueeze(0)
 
-    if y_noise.dtype is np.ndarray and y_noise is not None:
+    if y_noise is not None:
         if y_noise.shape[-1] > y.shape[-1] and clip_noise_stationary:
             y_noise = y_noise[:y.shape[-1]]
         y_noise = torch.from_numpy(y_noise).to(device)
@@ -52,6 +56,8 @@ def run_tg_with_noisereduce(y,
             ).to(device)
 
     y_denoised = tg(y, y_noise)
+    if y_ndim == 1:
+        y_denoised = y_denoised.squeeze(0)
 
     if y_type is np.ndarray:
         return y_denoised.cpu().numpy()
