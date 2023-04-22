@@ -111,7 +111,8 @@ def reduce_noise(
                                        freq_mask_smooth_hz,
                                        time_mask_smooth_ms,
                                        thresh_n_mult_nonstationary,
-                                       sigmoid_slope_nonstationary
+                                       sigmoid_slope_nonstationary,
+                                       clip_noise_stationary
                                        )
     else:
         if stationary:

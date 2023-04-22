@@ -17,7 +17,8 @@ def run_tg_with_noisereduce(y,
                             freq_mask_smooth_hz,
                             time_mask_smooth_ms,
                             thresh_n_mult_nonstationary,
-                            sigmoid_slope_nonstationary
+                            sigmoid_slope_nonstationary,
+                            clip_noise_stationary
                             ):
     '''
     Run interface with noisereduce so that torch is not a necessary requirement for noisereduce.
@@ -31,7 +32,9 @@ def run_tg_with_noisereduce(y,
     if y_type is np.ndarray:
         y = torch.from_numpy(y).to(device)
 
-    if y_noise.dtype is np.ndarray:
+    if y_noise.dtype is np.ndarray and y_noise is not None:
+        if y_noise.shape[-1] > y.shape[-1] and clip_noise_stationary:
+            y_noise = y_noise[:y.shape[-1]]
         y_noise = torch.from_numpy(y_noise).to(device)
 
     tg = TG(sr=sr,
