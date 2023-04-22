@@ -60,7 +60,7 @@ def _amp_to_db(x):
     return librosa.core.amplitude_to_db(x, ref=1.0, amin=1e-20, top_db=80.0)
 
 
-def _db_to_amp(x,):
+def _db_to_amp(x, ):
     return librosa.core.db_to_amplitude(x, ref=1.0)
 
 
@@ -124,7 +124,7 @@ def convolve_gaussian(sig_mask, smoothing_filter, use_tensorflow=False):
     """
     if use_tensorflow:
         smoothing_filter = smoothing_filter * (
-            (np.shape(smoothing_filter)[1] - 1) / 2 + 1
+                (np.shape(smoothing_filter)[1] - 1) / 2 + 1
         )
         smoothing_filter = smoothing_filter[:, :, tf.newaxis, tf.newaxis].astype(
             "float32"
@@ -167,18 +167,18 @@ def load_tensorflow(verbose=False):
 
 
 def reduce_noise(
-    audio_clip,
-    noise_clip=None,
-    n_grad_freq=2,
-    n_grad_time=4,
-    n_fft=2048,
-    win_length=2048,
-    hop_length=512,
-    n_std_thresh=1.5,
-    prop_decrease=1.0,
-    pad_clipping=True,
-    use_tensorflow=False,
-    verbose=False,
+        audio_clip,
+        noise_clip=None,
+        n_grad_freq=2,
+        n_grad_time=4,
+        n_fft=2048,
+        win_length=2048,
+        hop_length=512,
+        n_std_thresh=1.5,
+        prop_decrease=1.0,
+        pad_clipping=True,
+        use_tensorflow=False,
+        verbose=False,
 ):
     """Remove noise from audio based upon a clip containing only noise
 
@@ -293,3 +293,7 @@ def reduce_noise(
             recovered_spec,
         )
     return recovered_signal
+
+
+if __name__ == '__main__':
+    raise NotImplementedError
