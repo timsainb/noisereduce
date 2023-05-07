@@ -29,11 +29,21 @@ class TorchGate(torch.nn.Module):
     """
 
     @torch.no_grad()
-    def __init__(self, sr: int, nonstationary: bool = False, n_std_thresh_stationary: float = 1.5,
-                 n_thresh_nonstationary: bool = 1.3, temp_coeff_nonstationary: float = 0.1,
-                 n_movemean_nonstationary: int = 20, prop_decrease: float = 1.0, n_fft: int = 1024,
-                 win_length: bool = None, hop_length: int = None, freq_mask_smooth_hz: float = 500,
-                 time_mask_smooth_ms: float = 50):
+    def __init__(
+        self,
+        sr: int,
+        nonstationary: bool = False,
+        n_std_thresh_stationary: float = 1.5,
+        n_thresh_nonstationary: bool = 1.3,
+        temp_coeff_nonstationary: float = 0.1,
+        n_movemean_nonstationary: int = 20,
+        prop_decrease: float = 1.0,
+        n_fft: int = 1024,
+        win_length: bool = None,
+        hop_length: int = None,
+        freq_mask_smooth_hz: float = 500,
+        time_mask_smooth_ms: float = 50,
+    ):
         super().__init__()
 
         # General Params
@@ -74,27 +84,49 @@ class TorchGate(torch.nn.Module):
         if self.freq_mask_smooth_hz is None and self.time_mask_smooth_ms is None:
             return None
 
-        n_grad_freq = 1 if self.freq_mask_smooth_hz is None \
+        n_grad_freq = (
+            1
+            if self.freq_mask_smooth_hz is None
             else int(self.freq_mask_smooth_hz / (self.sr / (self.n_fft / 2)))
+        )
         if n_grad_freq < 1:
-            raise ValueError(f"freq_mask_smooth_hz needs to be at least {int((self.sr / (self._n_fft / 2)))} Hz")
+            raise ValueError(
+                f"freq_mask_smooth_hz needs to be at least {int((self.sr / (self._n_fft / 2)))} Hz"
+            )
 
-        n_grad_time = 1 if self.time_mask_smooth_ms is None \
+        n_grad_time = (
+            1
+            if self.time_mask_smooth_ms is None
             else int(self.time_mask_smooth_ms / ((self.hop_length / self.sr) * 1000))
+        )
         if n_grad_time < 1:
-            raise ValueError(f"time_mask_smooth_ms needs to be at least {int((self.hop_length / self.sr) * 1000)} ms")
+            raise ValueError(
+                f"time_mask_smooth_ms needs to be at least {int((self.hop_length / self.sr) * 1000)} ms"
+            )
 
         if n_grad_time == 1 and n_grad_freq == 1:
             return None
 
-        v_f = torch.cat([linspace(0, 1, n_grad_freq + 1, endpoint=False), linspace(1, 0, n_grad_freq + 2)])[1:-1]
-        v_t = torch.cat([linspace(0, 1, n_grad_time + 1, endpoint=False), linspace(1, 0, n_grad_time + 2)])[1:-1]
+        v_f = torch.cat(
+            [
+                linspace(0, 1, n_grad_freq + 1, endpoint=False),
+                linspace(1, 0, n_grad_freq + 2),
+            ]
+        )[1:-1]
+        v_t = torch.cat(
+            [
+                linspace(0, 1, n_grad_time + 1, endpoint=False),
+                linspace(1, 0, n_grad_time + 2),
+            ]
+        )[1:-1]
         smoothing_filter = torch.outer(v_f, v_t).unsqueeze(0).unsqueeze(0)
 
         return smoothing_filter / smoothing_filter.sum()
 
     @torch.no_grad()
-    def _stationary_mask(self, X_db: torch.Tensor, xn: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def _stationary_mask(
+        self, X_db: torch.Tensor, xn: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """
         Computes a stationary binary mask to filter out noise in a log-magnitude spectrogram.
 
@@ -107,14 +139,16 @@ class TorchGate(torch.nn.Module):
             are set to 1, and the rest are set to 0.
         """
         if xn is not None:
-            XN = torch.stft(xn,
-                            n_fft=self.n_fft,
-                            hop_length=self.hop_length,
-                            win_length=self.win_length,
-                            return_complex=True,
-                            pad_mode='constant',
-                            center=True,
-                            window=torch.hann_window(self.win_length).to(xn.device))
+            XN = torch.stft(
+                xn,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=self.win_length,
+                return_complex=True,
+                pad_mode="constant",
+                center=True,
+                window=torch.hann_window(self.win_length).to(xn.device),
+            )
 
             XN_db = amp_to_db(XN).to(dtype=X_db.dtype)
         else:
@@ -142,18 +176,30 @@ class TorchGate(torch.nn.Module):
             sig_mask (torch.Tensor): Binary mask of the same shape as X_abs, where values greater than the threshold
             are set to 1, and the rest are set to 0.
         """
-        X_smoothed = conv1d(X_abs.reshape(-1, 1, X_abs.shape[-1]),
-                            torch.ones(self.n_movemean_nonstationary, dtype=X_abs.dtype,
-                                       device=X_abs.device).view(1, 1, -1),
-                            padding='same').view(X_abs.shape) / self.n_movemean_nonstationary
+        X_smoothed = (
+            conv1d(
+                X_abs.reshape(-1, 1, X_abs.shape[-1]),
+                torch.ones(
+                    self.n_movemean_nonstationary,
+                    dtype=X_abs.dtype,
+                    device=X_abs.device,
+                ).view(1, 1, -1),
+                padding="same",
+            ).view(X_abs.shape)
+            / self.n_movemean_nonstationary
+        )
 
         # Compute slowness ratio and apply temperature sigmoid
         slowness_ratio = (X_abs - X_smoothed) / X_smoothed
-        sig_mask = temperature_sigmoid(slowness_ratio, self.n_thresh_nonstationary, self.temp_coeff_nonstationary)
+        sig_mask = temperature_sigmoid(
+            slowness_ratio, self.n_thresh_nonstationary, self.temp_coeff_nonstationary
+        )
 
         return sig_mask
 
-    def forward(self, x: torch.Tensor, xn: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, xn: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """
         Apply the proposed algorithm to the input signal.
 
@@ -167,11 +213,11 @@ class TorchGate(torch.nn.Module):
         """
         assert x.ndim == 2
         if x.shape[-1] < self.win_length * 2:
-            raise Exception(f'x must be bigger than {self.win_length * 2}')
+            raise Exception(f"x must be bigger than {self.win_length * 2}")
 
         assert xn is None or xn.ndim == 1 or xn.ndim == 2
         if xn is not None and xn.shape[-1] < self.win_length * 2:
-            raise Exception(f'xn must be bigger than {self.win_length * 2}')
+            raise Exception(f"xn must be bigger than {self.win_length * 2}")
 
         # Compute short-time Fourier transform (STFT)
         X = torch.stft(
@@ -180,9 +226,9 @@ class TorchGate(torch.nn.Module):
             hop_length=self.hop_length,
             win_length=self.win_length,
             return_complex=True,
-            pad_mode='constant',
+            pad_mode="constant",
             center=True,
-            window=torch.hann_window(self.win_length).to(x.device)
+            window=torch.hann_window(self.win_length).to(x.device),
         )
 
         # Compute signal mask based on stationary or nonstationary assumptions
@@ -196,7 +242,11 @@ class TorchGate(torch.nn.Module):
 
         # Smooth signal mask with 2D convolution
         if self.smoothing_filter is not None:
-            sig_mask = conv2d(sig_mask.unsqueeze(1), self.smoothing_filter.to(sig_mask.dtype), padding='same')
+            sig_mask = conv2d(
+                sig_mask.unsqueeze(1),
+                self.smoothing_filter.to(sig_mask.dtype),
+                padding="same",
+            )
 
         # Apply signal mask to STFT magnitude and phase components
         Y = X * sig_mask.squeeze(1)
@@ -208,7 +258,7 @@ class TorchGate(torch.nn.Module):
             hop_length=self.hop_length,
             win_length=self.win_length,
             center=True,
-            window=torch.hann_window(self.win_length).to(Y.device)
+            window=torch.hann_window(self.win_length).to(Y.device),
         )
 
         return y.to(dtype=x.dtype)

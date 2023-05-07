@@ -1,6 +1,5 @@
 import numpy as np
 
-
 # from https://stackoverflow.com/questions/33933842/how-to-generate-noise-in-frequency-range-with-numpy
 def fftnoise(f):
     """
@@ -9,8 +8,8 @@ def fftnoise(f):
     Np = (len(f) - 1) // 2
     phases = np.random.rand(Np) * 2 * np.pi
     phases = np.cos(phases) + 1j * np.sin(phases)
-    f[1: Np + 1] *= phases
-    f[-1: -1 - Np: -1] = np.conj(f[1: Np + 1])
+    f[1 : Np + 1] *= phases
+    f[-1 : -1 - Np : -1] = np.conj(f[1 : Np + 1])
     return np.fft.ifft(f).real
 
 

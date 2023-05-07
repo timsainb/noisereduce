@@ -1,1 +1,2 @@
-from .spectralgate import SpectralGateNonStationary, SpectralGateStationary
+from .nonstationary import SpectralGateNonStationary
+from .stationary import SpectralGateStationary
