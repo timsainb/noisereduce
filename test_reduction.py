@@ -83,7 +83,7 @@ def test_reduce_generated_noise_batches():
 
 
 ### Tests for V1
-import noisereduce.noisereducev1 as nrv1
+import noisereduce.tfgate.noisereducev1 as nrv1
 
 def test_reduce_generated_noise():
     # load data

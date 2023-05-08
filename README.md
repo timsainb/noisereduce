@@ -17,6 +17,11 @@ The most recent version of noisereduce comprises two algorithms:
 1. **Stationary Noise Reduction**: Keeps the estimated noise threshold at the same level across the whole signal
 2. **Non-stationary Noise Reduction**: Continuously updates the estimated noise threshold over time
 
+### Version 3 Updates:
+- Includes a PyTorch-based implementation of Spectral Gating, an algorithm for denoising audio signals. 
+- You can now create a noisereduce nn.Module object which allows it to be used either as a standalone module or as part of a larger neural network architecture.
+- The run time of the algorithm decreases substantially.
+
 ### Version 2 Updates:
 - Added two forms of spectral gating noise reduction: stationary noise reduction, and non-stationary noise reduction. 
 - Added multiprocessing so you can perform noise reduction on bigger data.
@@ -59,6 +64,7 @@ The most recent version of noisereduce comprises two algorithms:
 # Usage
 See example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/1.0-test-noise-reduction.ipynb)
 
+## reduce_noise
 
 ### Simplest usage
 ```
@@ -134,9 +140,43 @@ y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
       If unspecified, defaults to ``win_length // 4`` (see below)., by default None
   n_jobs : int, optional
       Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
+  torch_flag: bool, optional
+      Whether to use the torch version of spectral gating, by default False
+  device: str, optional
+      A device to run the torch spectral gating on, by default "cuda"
 ```
 
-### Choosing between Stationary and non-stantionary noise reduction 
+## Torch
+### Simplest usage
+```
+import torch
+from noisereduce.torchgate import TorchGate as TG
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+# Create TorchGating instance
+tg = TG(sr=8000, nonstationary=True).to(device)
+
+# Apply Spectral Gate to noisy speech signal
+noisy_speech = torch.randn(3, 32000, device=device)
+enhanced_speech = tg(noisy_speech)
+```
+### Arguments
+| Parameter                | Description                                                                                           |
+|--------------------------|-------------------------------------------------------------------------------------------------------|
+| sr                       | Sample rate of the input signal.                                                                      |
+| n_fft                    | The size of the FFT.                                                                                  |
+| hop_length               | The number of samples between adjacent STFT columns.                                                  |
+| win_length               | The window size for the STFT. If None, defaults to n_fft.                                             |
+| freq_mask_smooth_hz      | The frequency smoothing width in Hz for the masking filter. If None, no frequency masking is applied. |
+| time_mask_smooth_ms      | The time smoothing width in milliseconds for the masking filter. If None, no time masking is applied. |
+| n_std_thresh_stationary  | The number of standard deviations above the noise mean to consider as signal for stationary noise.    |
+| nonstationary            | Whether to use non-stationary noise masking.                                                          |
+| n_movemean_nonstationary | The number of frames to use for the moving average in the non-stationary noise mask.                  |
+| n_thresh_nonstationary   | The multiplier to apply to the sigmoid function in the non-stationary noise mask.                     |
+| temp_coeff_nonstationary | The temperature coefficient to apply to the sigmoid function in the non-stationary noise mask.        |
+| prop_decrease            | The proportion of decrease to apply to the mask.                                                      |
+
+## Choosing between Stationary and non-stantionary noise reduction 
 
 I discuss stationary and non-stationary noise reduction in [this paper](https://www.frontiersin.org/articles/10.3389/fnbeh.2021.811737/full). 
 
@@ -148,7 +188,7 @@ I discuss stationary and non-stationary noise reduction in [this paper](https://
 
 *Figure caption: Stationary and non-stationary spectral gating noise reduction. (A) An overview of each algorithm. Stationary noise reduction typically takes in an explicit noise signal to calculate statistics and performs noise reduction over the entire signal uniformly. Non-stationary noise reduction dynamically estimates and reduces noise concurrently. (B) Stationary and non-stationary spectral gating noise reduction using the noisereduce Python package (Sainburg, 2019) applied to a Common chiffchaff (Phylloscopus collybita) song (Stowell et al., 2019) with an airplane noise in the background. The bottom frame depicts the difference between the two algorithms.*
 
-### Citation
+## Citation
 If you use this code in your research, please cite it:
 ```
 
@@ -179,3 +219,4 @@ If you use this code in your research, please cite it:
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+

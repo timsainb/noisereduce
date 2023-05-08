@@ -6,6 +6,7 @@ librosa
 numpy
 scipy
 tqdm
+torch
 
 
 # for testing
