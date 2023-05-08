@@ -21,7 +21,6 @@ The most recent version of noisereduce comprises two algorithms:
 - Includes a PyTorch-based implementation of Spectral Gating, an algorithm for denoising audio signals. 
 - You can now create a noisereduce nn.Module object which allows it to be used either as a standalone module or as part of a larger neural network architecture.
 - The run time of the algorithm decreases substantially.
-- Because the VRAM might fill up for long signals, it is still advised to use the previous implementation.
 
 ### Version 2 Updates:
 - Added two forms of spectral gating noise reduction: stationary noise reduction, and non-stationary noise reduction. 
