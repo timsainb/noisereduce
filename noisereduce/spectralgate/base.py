@@ -159,8 +159,6 @@ class SpectralGate:
         """Do the actual filtering"""
         raise NotImplementedError
 
-        return chunk_filtered
-
     def _iterate_chunk(self, filtered_chunk, pos, end0, start0, ich):
         filtered_chunk0 = self._get_filtered_chunk(ich)
         filtered_chunk[:, pos : pos + end0 - start0] = filtered_chunk0[:, start0:end0]

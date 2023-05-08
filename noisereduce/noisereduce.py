@@ -1,6 +1,15 @@
 from noisereduce.spectralgate.stationary import SpectralGateStationary
 from noisereduce.spectralgate.nonstationary import SpectralGateNonStationary
 
+try:
+    import torch
+
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+if TORCH_AVAILABLE:
+    from noisereduce.spectralgate.torch.torchgate import SpectralGateTorch
+
 
 def reduce_noise(
     y,
@@ -23,7 +32,7 @@ def reduce_noise(
     clip_noise_stationary=True,
     use_tqdm=False,
     n_jobs=1,
-    torch_flag=False,
+    use_torch=False,
     device="cuda",
 ):
     """
@@ -94,53 +103,88 @@ def reduce_noise(
         Whether to show tqdm progress bar, by default False
     n_jobs : int, optional
         Number of parallel jobs to run. Set at -1 to use all CPU cores, by default 1
-    torch_flag: bool, optional
+    use_torch: bool, optional
         Whether to use the torch version of spectral gating, by default False
     device: str, optional
         A device to run the torch spectral gating on, by default "cuda"
     """
 
-    if torch_flag and n_jobs != 1:
-        raise ValueError("Cannot use torch_flag and n_jobs > 1")
+    if use_torch:
+        if TORCH_AVAILABLE == False:
+            raise ImportError(
+                "Torch is not installed. Please install torch to use torch version of spectral gating."
+            )
+        if n_jobs != 1:
+            raise ValueError(
+                "n_jobs must be 1 when using torch version of spectral gating."
+            )
 
-    if stationary:
-        sg = SpectralGateStationary(
+    # if using pytorch,
+    if use_torch:
+        device = (
+            torch.device(device) if torch.cuda.is_available() else torch.device(device)
+        )
+        sg = SpectralGateTorch(
             y=y,
             sr=sr,
+            stationary=stationary,
             y_noise=y_noise,
             prop_decrease=prop_decrease,
-            n_std_thresh_stationary=n_std_thresh_stationary,
-            chunk_size=chunk_size,
-            clip_noise_stationary=clip_noise_stationary,
-            padding=padding,
-            n_fft=n_fft,
-            win_length=win_length,
-            hop_length=hop_length,
-            time_constant_s=time_constant_s,
-            freq_mask_smooth_hz=freq_mask_smooth_hz,
-            time_mask_smooth_ms=time_mask_smooth_ms,
-            tmp_folder=tmp_folder,
-            use_tqdm=use_tqdm,
-            n_jobs=n_jobs,
-        )
-
-    else:
-        sg = SpectralGateNonStationary(
-            y=y,
-            sr=sr,
-            chunk_size=chunk_size,
-            padding=padding,
-            prop_decrease=prop_decrease,
-            n_fft=n_fft,
-            win_length=win_length,
-            hop_length=hop_length,
             time_constant_s=time_constant_s,
             freq_mask_smooth_hz=freq_mask_smooth_hz,
             time_mask_smooth_ms=time_mask_smooth_ms,
             thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
             sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
             tmp_folder=tmp_folder,
+            chunk_size=chunk_size,
+            padding=padding,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            clip_noise_stationary=clip_noise_stationary,
             use_tqdm=use_tqdm,
             n_jobs=n_jobs,
+            device=device,
         )
+    else:
+        if stationary:
+            sg = SpectralGateStationary(
+                y=y,
+                sr=sr,
+                y_noise=y_noise,
+                prop_decrease=prop_decrease,
+                n_std_thresh_stationary=n_std_thresh_stationary,
+                chunk_size=chunk_size,
+                clip_noise_stationary=clip_noise_stationary,
+                padding=padding,
+                n_fft=n_fft,
+                win_length=win_length,
+                hop_length=hop_length,
+                time_constant_s=time_constant_s,
+                freq_mask_smooth_hz=freq_mask_smooth_hz,
+                time_mask_smooth_ms=time_mask_smooth_ms,
+                tmp_folder=tmp_folder,
+                use_tqdm=use_tqdm,
+                n_jobs=n_jobs,
+            )
+
+        else:
+            sg = SpectralGateNonStationary(
+                y=y,
+                sr=sr,
+                chunk_size=chunk_size,
+                padding=padding,
+                prop_decrease=prop_decrease,
+                n_fft=n_fft,
+                win_length=win_length,
+                hop_length=hop_length,
+                time_constant_s=time_constant_s,
+                freq_mask_smooth_hz=freq_mask_smooth_hz,
+                time_mask_smooth_ms=time_mask_smooth_ms,
+                thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
+                sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
+                tmp_folder=tmp_folder,
+                use_tqdm=use_tqdm,
+                n_jobs=n_jobs,
+            )
     return sg.get_traces()
