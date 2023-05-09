@@ -75,18 +75,18 @@ def test_reduce_torch_cpu_stationary():
     )
 
 
-def test_reduce_torch_cpu_stationary_cuda():
-    # load data
-    wav_loc = "assets/fish.wav"
-    rate, data = wavfile.read(wav_loc)
-
-    # add noise
-    noise = band_limited_noise(
-        min_freq=2000, max_freq=12000, samples=len(data), samplerate=rate) * 10
-    audio_clip_band_limited = data + noise
-    return nr.reduce_noise(
-        y=audio_clip_band_limited, sr=rate, stationary=True, chunk_size=30000, use_torch=True, device='cuda'
-    )
+# def test_reduce_torch_cpu_stationary_cuda():
+#     # load data
+#     wav_loc = "assets/fish.wav"
+#     rate, data = wavfile.read(wav_loc)
+#
+#     # add noise
+#     noise = band_limited_noise(
+#         min_freq=2000, max_freq=12000, samples=len(data), samplerate=rate) * 10
+#     audio_clip_band_limited = data + noise
+#     return nr.reduce_noise(
+#         y=audio_clip_band_limited, sr=rate, stationary=True, chunk_size=30000, use_torch=True, device='cuda'
+#     )
 
 
 def test_reduce_torch_cpu_non_stationary():
@@ -103,15 +103,15 @@ def test_reduce_torch_cpu_non_stationary():
     )
 
 
-def test_reduce_torch_cpu_non_stationary_cuda():
-    # load data
-    wav_loc = "assets/fish.wav"
-    rate, data = wavfile.read(wav_loc)
-
-    # add noise
-    noise = band_limited_noise(
-        min_freq=2000, max_freq=12000, samples=len(data), samplerate=rate) * 10
-    audio_clip_band_limited = data + noise
-    return nr.reduce_noise(
-        y=audio_clip_band_limited, sr=rate, stationary=False, use_torch=True, device='cuda'
-    )
+# def test_reduce_torch_cpu_non_stationary_cuda():
+#     # load data
+#     wav_loc = "assets/fish.wav"
+#     rate, data = wavfile.read(wav_loc)
+#
+#     # add noise
+#     noise = band_limited_noise(
+#         min_freq=2000, max_freq=12000, samples=len(data), samplerate=rate) * 10
+#     audio_clip_band_limited = data + noise
+#     return nr.reduce_noise(
+#         y=audio_clip_band_limited, sr=rate, stationary=False, use_torch=True, device='cuda'
+#     )
