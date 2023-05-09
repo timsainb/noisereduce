@@ -1,2 +1,3 @@
 from .nonstationary import SpectralGateNonStationary
 from .stationary import SpectralGateStationary
+from .streamed_torch_gate import StreamedTorchGate
