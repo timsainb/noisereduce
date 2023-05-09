@@ -8,32 +8,32 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 if TORCH_AVAILABLE:
-    from noisereduce.spectralgate.torch.torchgate import SpectralGateTorch
+    from noisereduce.spectralgate.streamed_torch_gate import StreamedTorchGate
 
 
 def reduce_noise(
-    y,
-    sr,
-    stationary=False,
-    y_noise=None,
-    prop_decrease=1.0,
-    time_constant_s=2.0,
-    freq_mask_smooth_hz=500,
-    time_mask_smooth_ms=50,
-    thresh_n_mult_nonstationary=2,
-    sigmoid_slope_nonstationary=10,
-    n_std_thresh_stationary=1.5,
-    tmp_folder=None,
-    chunk_size=600000,
-    padding=30000,
-    n_fft=1024,
-    win_length=None,
-    hop_length=None,
-    clip_noise_stationary=True,
-    use_tqdm=False,
-    n_jobs=1,
-    use_torch=False,
-    device="cuda",
+        y,
+        sr,
+        stationary=False,
+        y_noise=None,
+        prop_decrease=1.0,
+        time_constant_s=2.0,
+        freq_mask_smooth_hz=500,
+        time_mask_smooth_ms=50,
+        thresh_n_mult_nonstationary=2,
+        sigmoid_slope_nonstationary=10,
+        n_std_thresh_stationary=1.5,
+        tmp_folder=None,
+        chunk_size=600000,
+        padding=30000,
+        n_fft=1024,
+        win_length=None,
+        hop_length=None,
+        clip_noise_stationary=True,
+        use_tqdm=False,
+        n_jobs=1,
+        use_torch=False,
+        device="cuda",
 ):
     """
     Reduce noise via spectral gating.
@@ -110,7 +110,7 @@ def reduce_noise(
     """
 
     if use_torch:
-        if TORCH_AVAILABLE == False:
+        if not TORCH_AVAILABLE:
             raise ImportError(
                 "Torch is not installed. Please install torch to use torch version of spectral gating."
             )
@@ -124,7 +124,7 @@ def reduce_noise(
         device = (
             torch.device(device) if torch.cuda.is_available() else torch.device(device)
         )
-        sg = SpectralGateTorch(
+        sg = StreamedTorchGate(
             y=y,
             sr=sr,
             stationary=stationary,
