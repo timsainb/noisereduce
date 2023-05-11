@@ -63,6 +63,7 @@ The most recent version of noisereduce comprises two algorithms:
 
 # Usage
 See example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/1.0-test-noise-reduction.ipynb)
+Parallel computing example: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/2.0-test-noisereduce-pytorch.ipynb)
 
 ## reduce_noise
 
@@ -147,6 +148,7 @@ y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
 ```
 
 ## Torch
+See example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/3.0-torchgate-as-nn-module.ipynb)
 ### Simplest usage
 ```
 import torch
@@ -219,4 +221,5 @@ If you use this code in your research, please cite it:
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
+
 

@@ -31,21 +31,21 @@ def _smoothing_filter(n_grad_freq, n_grad_time):
 
 class SpectralGate:
     def __init__(
-        self,
-        y,
-        sr,
-        prop_decrease,
-        chunk_size,
-        padding,
-        n_fft,
-        win_length,
-        hop_length,
-        time_constant_s,
-        freq_mask_smooth_hz,
-        time_mask_smooth_ms,
-        tmp_folder,
-        use_tqdm,
-        n_jobs,
+            self,
+            y,
+            sr,
+            prop_decrease,
+            chunk_size,
+            padding,
+            n_fft,
+            win_length,
+            hop_length,
+            time_constant_s,
+            freq_mask_smooth_hz,
+            time_mask_smooth_ms,
+            tmp_folder,
+            use_tqdm,
+            n_jobs,
     ):
         self.sr = sr
         # if this is a 1D single channel recording
@@ -138,7 +138,7 @@ class SpectralGate:
         else:
             i2b = i2
         chunk = np.zeros((self.n_channels, i2 - i1))
-        chunk[:, i1b - i1 : i2b - i1] = self.y[:, i1b:i2b]
+        chunk[:, i1b - i1: i2b - i1] = self.y[:, i1b:i2b]
         return chunk
 
     def filter_chunk(self, start_frame, end_frame):
@@ -147,7 +147,7 @@ class SpectralGate:
         i2 = end_frame + self.padding
         padded_chunk = self._read_chunk(i1, i2)
         filtered_padded_chunk = self._do_filter(padded_chunk)
-        return filtered_padded_chunk[:, start_frame - i1 : end_frame - i1]
+        return filtered_padded_chunk[:, start_frame - i1: end_frame - i1]
 
     def _get_filtered_chunk(self, ind):
         """Grabs a single chunk"""
@@ -161,7 +161,7 @@ class SpectralGate:
 
     def _iterate_chunk(self, filtered_chunk, pos, end0, start0, ich):
         filtered_chunk0 = self._get_filtered_chunk(ich)
-        filtered_chunk[:, pos : pos + end0 - start0] = filtered_chunk0[:, start0:end0]
+        filtered_chunk[:, pos: pos + end0 - start0] = filtered_chunk0[:, start0:end0]
         pos += end0 - start0
 
     def get_traces(self, start_frame=None, end_frame=None):

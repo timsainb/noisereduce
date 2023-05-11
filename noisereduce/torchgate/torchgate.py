@@ -34,7 +34,7 @@ class TorchGate(torch.nn.Module):
         sr: int,
         nonstationary: bool = False,
         n_std_thresh_stationary: float = 1.5,
-        n_thresh_nonstationary: bool = 1.3,
+        n_thresh_nonstationary: float = 1.3,
         temp_coeff_nonstationary: float = 0.1,
         n_movemean_nonstationary: int = 20,
         prop_decrease: float = 1.0,
