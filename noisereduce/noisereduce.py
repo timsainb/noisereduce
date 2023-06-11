@@ -45,7 +45,7 @@ def reduce_noise(
     sr : int
         sample rate of input signal / noise signal
     y_noise : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
-        noise signal to compute statistics over (only for non-stationary noise reduction).
+        noise signal to compute statistics over (only for stationary noise reduction).
     stationary : bool, optional
         Whether to perform stationary, or non-stationary noise reduction, by default False
     prop_decrease : float, optional
