@@ -8,6 +8,7 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 if TORCH_AVAILABLE:
+    import re
     from noisereduce.spectralgate.streamed_torch_gate import StreamedTorchGate
 
 
@@ -121,8 +122,11 @@ def reduce_noise(
 
     # if using pytorch,
     if use_torch:
+        # Available device types: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
+        _device_regex = re.compile(r"^(cuda|cpu|mps)(:[0-9]+)?$")
+        device = device if _device_regex.fullmatch(device) is not None else None
         device = (
-            torch.device(device) if torch.cuda.is_available() else torch.device(device)
+            torch.device(device or "cuda") if torch.cuda.is_available() else torch.device(device or "cpu")
         )
         sg = StreamedTorchGate(
             y=y,
