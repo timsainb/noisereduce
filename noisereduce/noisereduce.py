@@ -124,7 +124,7 @@ def reduce_noise(
     if use_torch:
         # Available device types: https://pytorch.org/docs/stable/tensor_attributes.html#torch.device
         _device_regex = re.compile(r"^(cuda|cpu|mps)(:[0-9]+)?$")
-        device = device if _device_regex.fullmatch(device) is not None else None
+        device = device if _device_regex.fullmatch(device or "") is not None else None
         device = (
             torch.device(device or "cuda") if torch.cuda.is_available() else torch.device(device or "cpu")
         )
