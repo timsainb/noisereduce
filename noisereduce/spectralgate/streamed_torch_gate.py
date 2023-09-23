@@ -50,7 +50,7 @@ class StreamedTorchGate(SpectralGate):
             n_jobs=n_jobs,
         )
 
-        self.device = device
+        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
         # noise convert to torch if needed
         if y_noise is not None:

@@ -3,7 +3,6 @@ from noisereduce.spectralgate.nonstationary import SpectralGateNonStationary
 
 try:
     import torch
-
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -121,9 +120,6 @@ def reduce_noise(
 
     # if using pytorch,
     if use_torch:
-        device = (
-            torch.device(device) if torch.cuda.is_available() else torch.device(device)
-        )
         sg = StreamedTorchGate(
             y=y,
             sr=sr,
