@@ -39,7 +39,7 @@ class TorchGate(torch.nn.Module):
         n_movemean_nonstationary: int = 20,
         prop_decrease: float = 1.0,
         n_fft: int = 1024,
-        win_length: bool = None,
+        win_length: int = None,
         hop_length: int = None,
         freq_mask_smooth_hz: float = 500,
         time_mask_smooth_ms: float = 50,
@@ -161,7 +161,7 @@ class TorchGate(torch.nn.Module):
         noise_thresh = mean_freq_noise + std_freq_noise * self.n_std_thresh_stationary
 
         # create binary mask by thresholding the spectrogram
-        sig_mask = X_db > noise_thresh.unsqueeze(2)
+        sig_mask = torch.gt(X_db, noise_thresh.unsqueeze(2))
         return sig_mask
 
     @torch.no_grad()
