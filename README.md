@@ -38,25 +38,25 @@ The most recent version of noisereduce comprises two algorithms:
 
 ### Steps of the Stationary Noise Reduction algorithm
 1. A spectrogram is calculated over the noise audio clip
-2. Statistics are calculated over spectrogram of the the noise (in frequency)
+2. Statistics are calculated over spectrogram of the noise (in frequency)
 3. A threshold is calculated based upon the statistics of the noise (and the desired sensitivity of the algorithm) 
 4. A spectrogram is calculated over the signal
 5. A mask is determined by comparing the signal spectrogram to the threshold
 6. The mask is smoothed with a filter over frequency and time
-7. The mask is appled to the spectrogram of the signal, and is inverted
+7. The mask is applied to the spectrogram of the signal, and is inverted
 *If the noise signal is not provided, the algorithm will treat the signal as the noise clip, which tends to work pretty well*
 
 # Non-stationary Noise Reduction
 - The non-stationary noise reduction algorithm is an extension of the stationary noise reduction algorithm, but allowing the noise gate to change over time. 
-- When you know the timescale that your signal occurs on (e.g. a bird call can be a few hundred milliseconds), you can set your noise threshold based on the assumption that events occuring on longer timescales are noise. 
+- When you know the timescale that your signal occurs on (e.g. a bird call can be a few hundred milliseconds), you can set your noise threshold based on the assumption that events occurring on longer timescales are noise. 
 - This algorithm was motivated by a recent method in bioacoustics called Per-Channel Energy Normalization. 
 
 ### Steps of the Non-stationary Noise Reduction algorithm
 1. A spectrogram is calculated over the signal
-2. A time-smoothed version of the spectrogram is computed using an IIR filter aplied forward and backward on each frequency channel.
+2. A time-smoothed version of the spectrogram is computed using an IIR filter applied forward and backward on each frequency channel.
 3. A mask is computed based on that time-smoothed spectrogram
 4. The mask is smoothed with a filter over frequency and time
-5. The mask is appled to the spectrogram of the signal, and is inverted
+5. The mask is applied to the spectrogram of the signal, and is inverted
 
 # Installation
 `pip install noisereduce`
