@@ -1,7 +1,6 @@
 from noisereduce.spectralgate.base import SpectralGate
 import numpy as np
-from librosa import stft, istft
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, stft, istft
 from .utils import _amp_to_db
 
 
@@ -67,10 +66,10 @@ class SpectralGateStationary(SpectralGate):
         # calculate statistics over y_noise
         abs_noise_stft = np.abs(
             stft(
-                (self.y_noise),
-                n_fft=self._n_fft,
-                hop_length=self._hop_length,
-                win_length=self._win_length,
+                self.y_noise,
+                nfft=self._n_fft,
+                noverlap=self._win_length - self._hop_length,
+                nperseg=self._win_length
             )
         )
         noise_stft_db = _amp_to_db(abs_noise_stft)
@@ -86,10 +85,10 @@ class SpectralGateStationary(SpectralGate):
         denoised_channels = np.zeros(chunk.shape, chunk.dtype)
         for ci, channel in enumerate(chunk):
             sig_stft = stft(
-                (channel),
-                n_fft=self._n_fft,
-                hop_length=self._hop_length,
-                win_length=self._win_length,
+                channel,
+                nfft=self._n_fft,
+                noverlap=self._win_length - self._hop_length,
+                nperseg=self._win_length
             )
 
             # spectrogram of signal in dB
@@ -119,8 +118,9 @@ class SpectralGateStationary(SpectralGate):
             # invert/recover the signal
             denoised_signal = istft(
                 sig_stft_denoised,
-                hop_length=self._hop_length,
-                win_length=self._win_length,
+                nfft=self._n_fft,
+                noverlap=self._win_length - self._hop_length,
+                nperseg=self._win_length
             )
             denoised_channels[ci, : len(denoised_signal)] = denoised_signal
         return denoised_channels

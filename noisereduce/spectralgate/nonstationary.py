@@ -1,8 +1,6 @@
 from noisereduce.spectralgate.base import SpectralGate
 import numpy as np
-from librosa import stft, istft
-from scipy.signal import filtfilt, fftconvolve
-import tempfile
+from scipy.signal import filtfilt, fftconvolve, stft, istft
 from .utils import sigmoid
 
 
@@ -51,10 +49,10 @@ class SpectralGateNonStationary(SpectralGate):
         denoised_channels = np.zeros(chunk.shape, chunk.dtype)
         for ci, channel in enumerate(chunk):
             sig_stft = stft(
-                (channel),
-                n_fft=self._n_fft,
-                hop_length=self._hop_length,
-                win_length=self._win_length,
+                channel,
+                nfft=self._n_fft,
+                noverlap=self._win_length - self._hop_length,
+                nperseg=self._win_length
             )
             # get abs of signal stft
             abs_sig_stft = np.abs(sig_stft)
@@ -90,8 +88,9 @@ class SpectralGateNonStationary(SpectralGate):
             # invert/recover the signal
             denoised_signal = istft(
                 sig_stft_denoised,
-                hop_length=self._hop_length,
-                win_length=self._win_length,
+                nfft=self._n_fft,
+                noverlap=self._win_length - self._hop_length,
+                nperseg=self._win_length
             )
             denoised_channels[ci, : len(denoised_signal)] = denoised_signal
         return denoised_channels
