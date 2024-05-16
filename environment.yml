@@ -7,7 +7,6 @@ dependencies:
   - notebook>5.2
   - scipy
   - matplotlib
-  - librosa
   - numpy
   - tqdm
   - pip:

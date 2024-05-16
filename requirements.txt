@@ -2,7 +2,6 @@
 -e .
 
 matplotlib
-librosa
 numpy
 scipy
 tqdm
