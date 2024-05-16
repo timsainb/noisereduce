@@ -6,23 +6,23 @@ from .utils import sigmoid
 
 class SpectralGateNonStationary(SpectralGate):
     def __init__(
-        self,
-        y,
-        sr,
-        chunk_size,
-        padding,
-        n_fft,
-        win_length,
-        hop_length,
-        time_constant_s,
-        freq_mask_smooth_hz,
-        time_mask_smooth_ms,
-        thresh_n_mult_nonstationary,
-        sigmoid_slope_nonstationary,
-        tmp_folder,
-        prop_decrease,
-        use_tqdm,
-        n_jobs,
+            self,
+            y,
+            sr,
+            chunk_size,
+            padding,
+            n_fft,
+            win_length,
+            hop_length,
+            time_constant_s,
+            freq_mask_smooth_hz,
+            time_mask_smooth_ms,
+            thresh_n_mult_nonstationary,
+            sigmoid_slope_nonstationary,
+            tmp_folder,
+            prop_decrease,
+            use_tqdm,
+            n_jobs,
     ):
         self._thresh_n_mult_nonstationary = thresh_n_mult_nonstationary
         self._sigmoid_slope_nonstationary = sigmoid_slope_nonstationary
@@ -48,7 +48,7 @@ class SpectralGateNonStationary(SpectralGate):
         """non-stationary version of spectral gating"""
         denoised_channels = np.zeros(chunk.shape, chunk.dtype)
         for ci, channel in enumerate(chunk):
-            sig_stft = stft(
+            _, _, sig_stft = stft(
                 channel,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
@@ -79,20 +79,20 @@ class SpectralGateNonStationary(SpectralGate):
                 sig_mask = fftconvolve(sig_mask, self._smoothing_filter, mode="same")
 
             sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (
-                1.0 - self._prop_decrease
+                    1.0 - self._prop_decrease
             )
 
             # multiply signal with mask
             sig_stft_denoised = sig_stft * sig_mask
 
             # invert/recover the signal
-            denoised_signal = istft(
+            _, denoised_signal = istft(
                 sig_stft_denoised,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
                 nperseg=self._win_length
             )
-            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal[: len(denoised_channels)]
         return denoised_channels
 
     def _do_filter(self, chunk):
@@ -103,12 +103,12 @@ class SpectralGateNonStationary(SpectralGate):
 
 
 def get_time_smoothed_representation(
-    spectral, samplerate, hop_length, time_constant_s=0.001
+        spectral, samplerate, hop_length, time_constant_s=0.001
 ):
     t_frames = time_constant_s * samplerate / float(hop_length)
     # By default, this solves the equation for b:
     #   b**2  + (1 - b) / t_frames  - 2 = 0
     # which approximates the full-width half-max of the
     # squared frequency response of the IIR low-pass filt
-    b = (np.sqrt(1 + 4 * t_frames**2) - 1) / (2 * t_frames**2)
+    b = (np.sqrt(1 + 4 * t_frames ** 2) - 1) / (2 * t_frames ** 2)
     return filtfilt([b], [1, b - 1], spectral, axis=-1, padtype=None)

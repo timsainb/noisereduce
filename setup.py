@@ -21,7 +21,7 @@ setup(
         "Topic :: Education",
         "Topic :: Scientific/Engineering",
     ],
-    install_requires=["scipy", "matplotlib", "numpy", "tqdm"],
+    install_requires=["scipy", "matplotlib", "numpy", "tqdm", "joblib"],
     extras_require={
         "PyTorch": ["torch>=1.9.0"],
     },

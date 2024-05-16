@@ -6,6 +6,7 @@ numpy
 scipy
 tqdm
 torch
+joblib
 
 
 # for testing

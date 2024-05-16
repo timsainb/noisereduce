@@ -6,24 +6,24 @@ from .utils import _amp_to_db
 
 class SpectralGateStationary(SpectralGate):
     def __init__(
-        self,
-        y,
-        sr,
-        y_noise,
-        n_std_thresh_stationary,
-        chunk_size,
-        clip_noise_stationary,
-        padding,
-        n_fft,
-        win_length,
-        hop_length,
-        time_constant_s,
-        freq_mask_smooth_hz,
-        time_mask_smooth_ms,
-        tmp_folder,
-        prop_decrease,
-        use_tqdm,
-        n_jobs,
+            self,
+            y,
+            sr,
+            y_noise,
+            n_std_thresh_stationary,
+            chunk_size,
+            clip_noise_stationary,
+            padding,
+            n_fft,
+            win_length,
+            hop_length,
+            time_constant_s,
+            freq_mask_smooth_hz,
+            time_mask_smooth_ms,
+            tmp_folder,
+            prop_decrease,
+            use_tqdm,
+            n_jobs,
     ):
         super().__init__(
             y=y,
@@ -64,27 +64,26 @@ class SpectralGateStationary(SpectralGate):
             self.y_noise = self.y_noise[:chunk_size]
 
         # calculate statistics over y_noise
-        abs_noise_stft = np.abs(
-            stft(
-                self.y_noise,
-                nfft=self._n_fft,
-                noverlap=self._win_length - self._hop_length,
-                nperseg=self._win_length
-            )
+        _, _, noise_stft = stft(
+            self.y_noise,
+            nfft=self._n_fft,
+            noverlap=self._win_length - self._hop_length,
+            nperseg=self._win_length
         )
-        noise_stft_db = _amp_to_db(abs_noise_stft)
+
+        noise_stft_db = _amp_to_db(noise_stft)
         self.mean_freq_noise = np.mean(noise_stft_db, axis=1)
         self.std_freq_noise = np.std(noise_stft_db, axis=1)
 
         self.noise_thresh = (
-            self.mean_freq_noise + self.std_freq_noise * self.n_std_thresh_stationary
+                self.mean_freq_noise + self.std_freq_noise * self.n_std_thresh_stationary
         )
 
     def spectral_gating_stationary(self, chunk):
         """non-stationary version of spectral gating"""
         denoised_channels = np.zeros(chunk.shape, chunk.dtype)
         for ci, channel in enumerate(chunk):
-            sig_stft = stft(
+            _, _, sig_stft = stft(
                 channel,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
@@ -92,7 +91,7 @@ class SpectralGateStationary(SpectralGate):
             )
 
             # spectrogram of signal in dB
-            sig_stft_db = _amp_to_db(np.abs(sig_stft))
+            sig_stft_db = _amp_to_db(sig_stft)
 
             # calculate the threshold for each frequency/time bin
             db_thresh = np.repeat(
@@ -105,7 +104,7 @@ class SpectralGateStationary(SpectralGate):
             sig_mask = sig_stft_db > db_thresh
 
             sig_mask = sig_mask * self._prop_decrease + np.ones(np.shape(sig_mask)) * (
-                1.0 - self._prop_decrease
+                    1.0 - self._prop_decrease
             )
 
             if self.smooth_mask:
@@ -116,13 +115,13 @@ class SpectralGateStationary(SpectralGate):
             sig_stft_denoised = sig_stft * sig_mask
 
             # invert/recover the signal
-            denoised_signal = istft(
+            _, denoised_signal = istft(
                 sig_stft_denoised,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
                 nperseg=self._win_length
             )
-            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal[: len(denoised_channels)]
         return denoised_channels
 
     def _do_filter(self, chunk):
