@@ -68,7 +68,8 @@ class SpectralGateStationary(SpectralGate):
             self.y_noise,
             nfft=self._n_fft,
             noverlap=self._win_length - self._hop_length,
-            nperseg=self._win_length
+            nperseg=self._win_length,
+            padded=False
         )
 
         noise_stft_db = _amp_to_db(noise_stft)
@@ -87,7 +88,8 @@ class SpectralGateStationary(SpectralGate):
                 channel,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
-                nperseg=self._win_length
+                nperseg=self._win_length,
+                padded=False
             )
 
             # spectrogram of signal in dB
@@ -121,7 +123,7 @@ class SpectralGateStationary(SpectralGate):
                 noverlap=self._win_length - self._hop_length,
                 nperseg=self._win_length
             )
-            denoised_channels[ci, : len(denoised_signal)] = denoised_signal[: len(denoised_channels)]
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
         return denoised_channels
 
     def _do_filter(self, chunk):

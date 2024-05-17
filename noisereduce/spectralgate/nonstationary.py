@@ -52,7 +52,8 @@ class SpectralGateNonStationary(SpectralGate):
                 channel,
                 nfft=self._n_fft,
                 noverlap=self._win_length - self._hop_length,
-                nperseg=self._win_length
+                nperseg=self._win_length,
+                padded=False
             )
             # get abs of signal stft
             abs_sig_stft = np.abs(sig_stft)
@@ -92,7 +93,7 @@ class SpectralGateNonStationary(SpectralGate):
                 noverlap=self._win_length - self._hop_length,
                 nperseg=self._win_length
             )
-            denoised_channels[ci, : len(denoised_signal)] = denoised_signal[: len(denoised_channels)]
+            denoised_channels[ci, : len(denoised_signal)] = denoised_signal
         return denoised_channels
 
     def _do_filter(self, chunk):
