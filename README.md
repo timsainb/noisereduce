@@ -118,9 +118,8 @@ y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
       length of the windowed signal after padding with zeros.
       The number of rows in the STFT matrix ``D`` is ``(1 + n_fft/2)``.
       The default value, ``n_fft=2048`` samples, corresponds to a physical
-      duration of 93 milliseconds at a sample rate of 22050 Hz, i.e. the
-      default sample rate in librosa. This value is well adapted for music
-      signals. However, in speech processing, the recommended value is 512,
+      duration of 93 milliseconds at a sample rate of 22050 Hz. 
+      This value is well adapted for music signals. However, in speech processing, the recommended value is 512,
       corresponding to 23 milliseconds at a sample rate of 22050 Hz.
       In any case, we recommend setting ``n_fft`` to a power of two for
       optimizing the speed of the fast Fourier transform (FFT) algorithm., by default 1024

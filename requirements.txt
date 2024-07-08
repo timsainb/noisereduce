@@ -2,11 +2,11 @@
 -e .
 
 matplotlib
-librosa
 numpy
 scipy
 tqdm
 torch
+joblib
 
 
 # for testing

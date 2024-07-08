@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setup(
     name="noisereduce",
     packages=find_packages(),
-    version="3.0.2",
+    version="3.0.3",
     description="Noise reduction using Spectral Gating in Python",
     author="Tim Sainburg",
     license="MIT",
@@ -21,7 +21,7 @@ setup(
         "Topic :: Education",
         "Topic :: Scientific/Engineering",
     ],
-    install_requires=["scipy", "matplotlib", "librosa", "numpy", "tqdm"],
+    install_requires=["scipy", "matplotlib", "numpy", "tqdm", "joblib"],
     extras_require={
         "PyTorch": ["torch>=1.9.0"],
     },
