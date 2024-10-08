@@ -1,8 +1,8 @@
-from noisereduce.spectralgate.stationary import SpectralGateStationary
-from noisereduce.spectralgate.nonstationary import SpectralGateNonStationary
+from noisereduce.spectralgate.spectralgate import SpectralGate
 
 try:
     import torch
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -11,28 +11,26 @@ if TORCH_AVAILABLE:
 
 
 def reduce_noise(
-        y,
-        sr,
-        stationary=False,
-        y_noise=None,
-        prop_decrease=1.0,
-        time_constant_s=2.0,
-        freq_mask_smooth_hz=500,
-        time_mask_smooth_ms=50,
-        thresh_n_mult_nonstationary=2,
-        sigmoid_slope_nonstationary=10,
-        n_std_thresh_stationary=1.5,
-        tmp_folder=None,
-        chunk_size=600000,
-        padding=30000,
-        n_fft=1024,
-        win_length=None,
-        hop_length=None,
-        clip_noise_stationary=True,
-        use_tqdm=False,
-        n_jobs=1,
-        use_torch=False,
-        device="cuda",
+    y,
+    sr,
+    stationary=False,
+    y_noise=None,
+    prop_decrease=1.0,
+    freq_mask_smooth_hz=500,
+    time_mask_smooth_ms=50,
+    noise_window_size_nonstationary_ms=None,
+    n_std_thresh=1.5,
+    tmp_folder=None,
+    chunk_size=600000,
+    padding=30000,
+    n_fft=1024,
+    win_length=None,
+    hop_length=None,
+    clip_noise_stationary=True,
+    use_tqdm=False,
+    n_jobs=1,
+    use_torch=False,
+    device="cuda",
 ):
     """
     Reduce noise via spectral gating.
@@ -49,18 +47,14 @@ def reduce_noise(
         Whether to perform stationary, or non-stationary noise reduction, by default False
     prop_decrease : float, optional
         The proportion to reduce the noise by (1.0 = 100%), by default 1.0
-    time_constant_s : float, optional
-        The time constant, in seconds, to compute the noise floor in the non-stationary
-        algorithm, by default 2.0
     freq_mask_smooth_hz : int, optional
         The frequency range to smooth the mask over in Hz, by default 500
     time_mask_smooth_ms : int, optional
         The time range to smooth the mask over in milliseconds, by default 50
-    thresh_n_mult_nonstationary : int, optional
-        Only used in nonstationary noise reduction., by default 1
-    sigmoid_slope_nonstationary : int, optional
-        Only used in nonstationary noise reduction., by default 10
-    n_std_thresh_stationary : int, optional
+    noise_window_size_nonstationary_ms: float, optional
+        The window size (in seconds) to compute the noise floor over in the non-stationary
+        algorithm, by default None
+    n_std_thresh : int, optional
         Number of standard deviations above mean to place the threshold between
         signal and noise., by default 1.5
     tmp_folder : [type], optional
@@ -125,11 +119,9 @@ def reduce_noise(
             stationary=stationary,
             y_noise=y_noise,
             prop_decrease=prop_decrease,
-            time_constant_s=time_constant_s,
             freq_mask_smooth_hz=freq_mask_smooth_hz,
             time_mask_smooth_ms=time_mask_smooth_ms,
-            thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
-            sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
+            noise_window_size_nonstationary_ms=noise_window_size_nonstationary_ms,
             tmp_folder=tmp_folder,
             chunk_size=chunk_size,
             padding=padding,
@@ -142,44 +134,25 @@ def reduce_noise(
             device=device,
         )
     else:
-        if stationary:
-            sg = SpectralGateStationary(
-                y=y,
-                sr=sr,
-                y_noise=y_noise,
-                prop_decrease=prop_decrease,
-                n_std_thresh_stationary=n_std_thresh_stationary,
-                chunk_size=chunk_size,
-                clip_noise_stationary=clip_noise_stationary,
-                padding=padding,
-                n_fft=n_fft,
-                win_length=win_length,
-                hop_length=hop_length,
-                time_constant_s=time_constant_s,
-                freq_mask_smooth_hz=freq_mask_smooth_hz,
-                time_mask_smooth_ms=time_mask_smooth_ms,
-                tmp_folder=tmp_folder,
-                use_tqdm=use_tqdm,
-                n_jobs=n_jobs,
-            )
+        sg = SpectralGate(
+            y=y,
+            sr=sr,
+            stationary=stationary,
+            y_noise=y_noise,
+            noise_window_size_nonstationary_ms=noise_window_size_nonstationary_ms,
+            prop_decrease=prop_decrease,
+            n_std_thresh=n_std_thresh,
+            chunk_size=chunk_size,
+            clip_noise_stationary=clip_noise_stationary,
+            padding=padding,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            freq_mask_smooth_hz=freq_mask_smooth_hz,
+            time_mask_smooth_ms=time_mask_smooth_ms,
+            tmp_folder=tmp_folder,
+            use_tqdm=use_tqdm,
+            n_jobs=n_jobs,
+        )
 
-        else:
-            sg = SpectralGateNonStationary(
-                y=y,
-                sr=sr,
-                chunk_size=chunk_size,
-                padding=padding,
-                prop_decrease=prop_decrease,
-                n_fft=n_fft,
-                win_length=win_length,
-                hop_length=hop_length,
-                time_constant_s=time_constant_s,
-                freq_mask_smooth_hz=freq_mask_smooth_hz,
-                time_mask_smooth_ms=time_mask_smooth_ms,
-                thresh_n_mult_nonstationary=thresh_n_mult_nonstationary,
-                sigmoid_slope_nonstationary=sigmoid_slope_nonstationary,
-                tmp_folder=tmp_folder,
-                use_tqdm=use_tqdm,
-                n_jobs=n_jobs,
-            )
     return sg.get_traces()

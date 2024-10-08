@@ -1,7 +1,45 @@
 import torch
 from torch.nn.functional import conv1d, conv2d
 from typing import Union, Optional
-from .utils import linspace, temperature_sigmoid, amp_to_db
+from .utils import linspace, amp_to_db
+import torch.nn.functional as F
+
+
+def moving_average_batched(data, window_size):
+    """
+    Calculate the moving average over the third dimension of a 3D batched dataset using PyTorch.
+    This mirrors the edge handling of uniform_filter_1d by using symmetric reflection.
+
+    Parameters:
+    data (torch.Tensor): 3D tensor of shape (batch_size, num_features, num_samples).
+    window_size (int): The size of the moving window.
+
+    Returns:
+    torch.Tensor: 3D tensor containing the moving averages with the same shape as `data`.
+    """
+    if window_size <= 0:
+        raise ValueError("Window size must be a positive integer")
+    if window_size > data.size(2):
+        raise ValueError(
+            "Window size must not be greater than the number of samples per feature"
+        )
+
+    pad_width = window_size // 2
+
+    # Pad data with mode 'reflect' to simulate the edge effect handling
+    padded_data = torch.nn.functional.pad(
+        data, (pad_width, pad_width, 0, 0), mode="reflect"
+    )
+
+    # Compute the cumulative sum of the padded data along the last dimension (i.e., num_samples)
+    cumsum = torch.cumsum(padded_data, dim=2)
+
+    # Compute the moving average using the cumulative sum
+    moving_average = (
+        cumsum[:, :, window_size:] - cumsum[:, :, :-window_size]
+    ) / window_size
+
+    return moving_average
 
 
 class TorchGate(torch.nn.Module):
@@ -11,13 +49,13 @@ class TorchGate(torch.nn.Module):
     Arguments:
         sr {int} -- Sample rate of the input signal.
         nonstationary {bool} -- Whether to use non-stationary or stationary masking (default: {False}).
-        n_std_thresh_stationary {float} -- Number of standard deviations above mean to threshold noise for
+        n_std_thresh {float} -- Number of standard deviations above mean to threshold noise for
                                            stationary masking (default: {1.5}).
         n_thresh_nonstationary {float} -- Number of multiplies above smoothed magnitude spectrogram. for
                                         non-stationary masking (default: {1.3}).
         temp_coeff_nonstationary {float} -- Temperature coefficient for non-stationary masking (default: {0.1}).
-        n_movemean_nonstationary {int} -- Number of samples for moving average smoothing in non-stationary masking
-                                          (default: {20}).
+        noise_window_size_nonstationary {int} -- Number of samples for moving average smoothing in non-stationary masking
+                                          (default: {1000}).
         prop_decrease {float} -- Proportion to decrease signal by where the mask is zero (default: {1.0}).
         n_fft {int} -- Size of FFT for STFT (default: {1024}).
         win_length {[int]} -- Window length for STFT. If None, defaults to `n_fft` (default: {None}).
@@ -33,10 +71,8 @@ class TorchGate(torch.nn.Module):
         self,
         sr: int,
         nonstationary: bool = False,
-        n_std_thresh_stationary: float = 1.5,
-        n_thresh_nonstationary: float = 1.3,
-        temp_coeff_nonstationary: float = 0.1,
-        n_movemean_nonstationary: int = 20,
+        n_std_thresh: float = 1.5,
+        noise_window_size_nonstationary: float = 1000,
         prop_decrease: float = 1.0,
         n_fft: int = 1024,
         win_length: int = None,
@@ -58,12 +94,10 @@ class TorchGate(torch.nn.Module):
         self.hop_length = self.win_length // 4 if hop_length is None else hop_length
 
         # Stationary Params
-        self.n_std_thresh_stationary = n_std_thresh_stationary
+        self.n_std_thresh = n_std_thresh
 
-        # Non-Stationary Params
-        self.temp_coeff_nonstationary = temp_coeff_nonstationary
-        self.n_movemean_nonstationary = n_movemean_nonstationary
-        self.n_thresh_nonstationary = n_thresh_nonstationary
+        # Nnonstationary Params
+        self.noise_window_size_nonstationary = noise_window_size_nonstationary
 
         # Smooth Mask Params
         self.freq_mask_smooth_hz = freq_mask_smooth_hz
@@ -153,47 +187,46 @@ class TorchGate(torch.nn.Module):
             XN_db = amp_to_db(XN).to(dtype=X_db.dtype)
         else:
             XN_db = X_db
-
         # calculate mean and standard deviation along the frequency axis
         std_freq_noise, mean_freq_noise = torch.std_mean(XN_db, dim=-1)
 
         # compute noise threshold
-        noise_thresh = mean_freq_noise + std_freq_noise * self.n_std_thresh_stationary
+        noise_thresh = mean_freq_noise + std_freq_noise * self.n_std_thresh
 
         # create binary mask by thresholding the spectrogram
         sig_mask = torch.gt(X_db, noise_thresh.unsqueeze(2))
         return sig_mask
 
     @torch.no_grad()
-    def _nonstationary_mask(self, X_abs: torch.Tensor) -> torch.Tensor:
+    def _nonstationary_mask(self, X_db: torch.Tensor) -> torch.Tensor:
         """
         Computes a non-stationary binary mask to filter out noise in a log-magnitude spectrogram.
 
         Arguments:
-            X_abs (torch.Tensor): 2D tensor of shape (frames, freq_bins) containing the magnitude spectrogram.
+            X_db (torch.Tensor): 3D tensor of shape (1, frames, freq_bins) containing the log-magnitude spectrogram.
 
         Returns:
-            sig_mask (torch.Tensor): Binary mask of the same shape as X_abs, where values greater than the threshold
+            sig_mask (torch.Tensor): Binary mask of the same shape as X_db, where values greater than the threshold
             are set to 1, and the rest are set to 0.
         """
-        X_smoothed = (
-            conv1d(
-                X_abs.reshape(-1, 1, X_abs.shape[-1]),
-                torch.ones(
-                    self.n_movemean_nonstationary,
-                    dtype=X_abs.dtype,
-                    device=X_abs.device,
-                ).view(1, 1, -1),
-                padding="same",
-            ).view(X_abs.shape)
-            / self.n_movemean_nonstationary
-        )
 
-        # Compute slowness ratio and apply temperature sigmoid
-        slowness_ratio = (X_abs - X_smoothed) / X_smoothed
-        sig_mask = temperature_sigmoid(
-            slowness_ratio, self.n_thresh_nonstationary, self.temp_coeff_nonstationary
+        # compute the smoothed average of X along the time axis
+        X_mean = (
+            moving_average_batched(X_db, self.noise_window_size_nonstationary)
+            / self.noise_window_size_nonstationary
         )
+        squared_diff = (X_db - X_mean) ** 2
+        X_var = (
+            moving_average_batched(squared_diff, self.noise_window_size_nonstationary)
+            / self.noise_window_size_nonstationary
+        )
+        # compute the standard deviation of X
+        X_std = X_var.sqrt()
+
+        # compute the noise threshold
+        noise_thresh = X_mean + X_std * self.n_std_thresh
+        # create binary mask by thresholding the spectrogram
+        sig_mask = torch.gt(X_db, noise_thresh)
 
         return sig_mask
 
@@ -233,7 +266,7 @@ class TorchGate(torch.nn.Module):
 
         # Compute signal mask based on stationary or nonstationary assumptions
         if self.nonstationary:
-            sig_mask = self._nonstationary_mask(X.abs())
+            sig_mask = self._nonstationary_mask(amp_to_db(X))
         else:
             sig_mask = self._stationary_mask(amp_to_db(X), xn)
 
@@ -247,7 +280,6 @@ class TorchGate(torch.nn.Module):
                 self.smoothing_filter.to(sig_mask.dtype),
                 padding="same",
             )
-
         # Apply signal mask to STFT magnitude and phase components
         Y = X * sig_mask.squeeze(1)
 
@@ -260,5 +292,4 @@ class TorchGate(torch.nn.Module):
             center=True,
             window=torch.hann_window(self.win_length).to(Y.device),
         )
-
         return y.to(dtype=x.dtype)
