@@ -13,7 +13,7 @@ if TORCH_AVAILABLE:
 def reduce_noise(
     y,
     sr,
-    stationary=False,
+    stationary=True,
     y_noise=None,
     prop_decrease=1.0,
     freq_mask_smooth_hz=500,
@@ -44,7 +44,7 @@ def reduce_noise(
     y_noise : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
         noise signal to compute statistics over (only for stationary noise reduction).
     stationary : bool, optional
-        Whether to perform stationary, or non-stationary noise reduction, by default False
+        Whether to perform stationary, or non-stationary noise reduction, by default True
     prop_decrease : float, optional
         The proportion to reduce the noise by (1.0 = 100%), by default 1.0
     freq_mask_smooth_hz : int, optional
@@ -52,7 +52,7 @@ def reduce_noise(
     time_mask_smooth_ms : int, optional
         The time range to smooth the mask over in milliseconds, by default 50
     noise_window_size_nonstationary_ms: float, optional
-        The window size (in seconds) to compute the noise floor over in the non-stationary
+        The window size (in milliseconds) to compute the noise floor over in the non-stationary
         algorithm, by default None
     n_std_thresh : int, optional
         Number of standard deviations above mean to place the threshold between
