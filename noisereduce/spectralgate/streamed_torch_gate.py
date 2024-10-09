@@ -69,6 +69,7 @@ class StreamedTorchGate(SpectralGate):
             sr=sr,
             nonstationary=not stationary,
             n_std_thresh=n_std_thresh,
+            noise_window_size_nonstationary_stft_frames=self.noise_window_size_nonstationary_stft_frames,
             prop_decrease=prop_decrease,
             n_fft=self._n_fft,
             win_length=self._win_length,

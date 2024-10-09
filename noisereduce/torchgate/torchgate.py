@@ -54,7 +54,7 @@ class TorchGate(torch.nn.Module):
         n_thresh_nonstationary {float} -- Number of multiplies above smoothed magnitude spectrogram. for
                                         non-stationary masking (default: {1.3}).
         temp_coeff_nonstationary {float} -- Temperature coefficient for non-stationary masking (default: {0.1}).
-        noise_window_size_nonstationary {int} -- Number of samples for moving average smoothing in non-stationary masking
+        noise_window_size_nonstationary_stft_frames {int} -- Number of samples for moving average smoothing in non-stationary masking
                                           (default: {1000}).
         prop_decrease {float} -- Proportion to decrease signal by where the mask is zero (default: {1.0}).
         n_fft {int} -- Size of FFT for STFT (default: {1024}).
@@ -72,7 +72,7 @@ class TorchGate(torch.nn.Module):
         sr: int,
         nonstationary: bool = False,
         n_std_thresh: float = 1.5,
-        noise_window_size_nonstationary: float = 1000,
+        noise_window_size_nonstationary_stft_frames: float = 1000,
         prop_decrease: float = 1.0,
         n_fft: int = 1024,
         win_length: int = None,
@@ -97,7 +97,9 @@ class TorchGate(torch.nn.Module):
         self.n_std_thresh = n_std_thresh
 
         # Nnonstationary Params
-        self.noise_window_size_nonstationary = noise_window_size_nonstationary
+        self.noise_window_size_nonstationary_stft_frames = (
+            noise_window_size_nonstationary_stft_frames
+        )
 
         # Smooth Mask Params
         self.freq_mask_smooth_hz = freq_mask_smooth_hz
@@ -212,13 +214,25 @@ class TorchGate(torch.nn.Module):
 
         # compute the smoothed average of X along the time axis
         X_mean = (
-            moving_average_batched(X_db, self.noise_window_size_nonstationary)
-            / self.noise_window_size_nonstationary
+            moving_average_batched(
+                X_db, self.noise_window_size_nonstationary_stft_frames
+            )
+            / self.noise_window_size_nonstationary_stft_frames
         )
+
+        # test plot for debugging
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(2, 1, figsize=(20, 6))
+        # ax[0].imshow(X_mean[0].cpu().numpy(), origin="lower")
+        # ax[1].imshow(X_db[0].cpu().numpy(), origin="lower")
+        # plt.show()
+
         squared_diff = (X_db - X_mean) ** 2
         X_var = (
-            moving_average_batched(squared_diff, self.noise_window_size_nonstationary)
-            / self.noise_window_size_nonstationary
+            moving_average_batched(
+                squared_diff, self.noise_window_size_nonstationary_stft_frames
+            )
+            / self.noise_window_size_nonstationary_stft_frames
         )
         # compute the standard deviation of X
         X_std = X_var.sqrt()
@@ -280,6 +294,7 @@ class TorchGate(torch.nn.Module):
                 self.smoothing_filter.to(sig_mask.dtype),
                 padding="same",
             )
+
         # Apply signal mask to STFT magnitude and phase components
         Y = X * sig_mask.squeeze(1)
 

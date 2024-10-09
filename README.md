@@ -67,8 +67,7 @@ Choosing parameters that fit your data type is crucial to getting reasonable noi
       Number of standard deviations above mean to place the threshold between
       signal and noise, by default 1.5
   noise_window_size_nonstationary_ms: float, optional
-      The window size (in milliseconds) to compute the noise floor over in the non-stationary
-      algorithm, by default None
+      The window size (in milliseconds) to compute the noise floor over in the non-stationary algorithm, by default None
   prop_decrease : float, optional
       The proportion to reduce the noise by (1.0 = 100%), by default 1.0
   freq_mask_smooth_hz : int, optional

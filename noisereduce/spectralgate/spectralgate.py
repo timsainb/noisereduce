@@ -105,6 +105,16 @@ class SpectralGate:
                 freq_mask_smooth_hz, time_mask_smooth_ms
             )
 
+        def ensure_even(n):
+            if n % 2 != 0:  # Check if n is odd
+                return n + 1  # Make it even by adding 1
+            return n  # Return it as is if already even
+
+        if self.stationary == False:
+            self.noise_window_size_nonstationary_stft_frames = ensure_even(
+                int(np.ceil(self.noise_window_size_nonstationary / self._hop_length))
+            )
+
         # prepare noise clip & compute statistics
         if self.stationary:
             if y_noise is None:
@@ -172,14 +182,22 @@ class SpectralGate:
                 # get the mean and std over the frequency axis for the current block_size
                 mean_freq_noise = uniform_filter1d(
                     sig_stft_db,
-                    size=self.noise_window_size_nonstationary,
+                    size=self.noise_window_size_nonstationary_stft_frames,
                     axis=1,
                     mode="reflect",
                 )
+
+                ## test plot for debugging
+                # import matplotlib.pyplot as plt
+                # fig, ax = plt.subplots(2, 1, figsize=(10, 5))
+                # ax[0].imshow(sig_stft_db, aspect="auto")
+                # ax[1].imshow(mean_freq_noise, aspect="auto")
+                # plt.show()
+
                 squared_diff = (sig_stft_db - mean_freq_noise) ** 2
                 variance = uniform_filter1d(
                     squared_diff,
-                    size=self.noise_window_size_nonstationary,
+                    size=self.noise_window_size_nonstationary_stft_frames,
                     mode="reflect",
                 )
                 std_freq_noise = np.sqrt(variance)
