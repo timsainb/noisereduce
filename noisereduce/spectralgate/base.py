@@ -137,7 +137,7 @@ class SpectralGate:
             i2b = self.n_frames
         else:
             i2b = i2
-        chunk = np.zeros((self.n_channels, i2 - i1))
+        chunk = np.zeros((self.n_channels, i2 - i1), dtype=self._dtype)
         chunk[:, i1b - i1: i2b - i1] = self.y[:, i1b:i2b]
         return chunk
 

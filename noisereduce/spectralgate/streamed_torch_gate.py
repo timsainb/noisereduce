@@ -1,3 +1,4 @@
+import os
 import torch
 from noisereduce.spectralgate.base import SpectralGate
 from noisereduce.torchgate import TorchGate as TG
@@ -50,7 +51,10 @@ class StreamedTorchGate(SpectralGate):
             n_jobs=n_jobs,
         )
 
-        self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        if "cuda" in device and not torch.cuda.is_available():
+            device = "cpu"
+
+        self.device = torch.device(device)
 
         # noise convert to torch if needed
         if y_noise is not None:
