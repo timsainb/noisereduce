@@ -61,9 +61,28 @@ The most recent version of noisereduce comprises two algorithms:
 # Installation
 `pip install noisereduce`
 
+For developing noisereduce use:
+
+```bash
+git clone https://github.com/timsainb/noisereduce
+uv sync --all-extras
+```
+
 # Usage
 See example notebook: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/1.0-test-noise-reduction.ipynb)
+
 Parallel computing example: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/timsainb/noisereduce/blob/master/notebooks/2.0-test-noisereduce-pytorch.ipynb)
+
+If you have `uv` installed, you can run `noisereduce` using uvx:
+
+```bash
+uvx noisereduce
+usage: noisereduce [-h] [--stationary] [--noise-file NOISE_FILE] [--prop-decrease PROP_DECREASE] [--time-constant-s TIME_CONSTANT_S] [--freq-mask-smooth-hz FREQ_MASK_SMOOTH_HZ]
+                   [--time-mask-smooth-ms TIME_MASK_SMOOTH_MS] [--thresh-n-mult-nonstationary THRESH_N_MULT_NONSTATIONARY] [--sigmoid-slope-nonstationary SIGMOID_SLOPE_NONSTATIONARY]
+                   [--n-std-thresh-stationary N_STD_THRESH_STATIONARY] [--tmp-folder TMP_FOLDER] [--chunk-size CHUNK_SIZE] [--padding PADDING] [--n-fft N_FFT] [--win-length WIN_LENGTH]
+                   [--hop-length HOP_LENGTH] [--clip-noise-stationary] [--no-clip-noise-stationary] [--no-progress] [--n-jobs N_JOBS] [--use-torch] [--device DEVICE]
+                   input_file output_file
+```
 
 ## reduce_noise
 
@@ -98,7 +117,7 @@ y : np.ndarray [shape=(# frames,) or (# channels, # frames)], real-valued
   time_mask_smooth_ms : int, optional
       The time range to smooth the mask over in milliseconds, by default 50
   thresh_n_mult_nonstationary : int, optional
-      Only used in nonstationary noise reduction., by default 1
+      Only used in nonstationary noise reduction., by default 2
   sigmoid_slope_nonstationary : int, optional
       Only used in nonstationary noise reduction., by default 10
   n_std_thresh_stationary : int, optional

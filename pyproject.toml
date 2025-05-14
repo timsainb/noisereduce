@@ -1,0 +1,43 @@
+[project]
+name = "noisereduce"
+version = "3.0.3"
+description = "Noise reduction using Spectral Gating in Python"
+readme = "README.md"
+requires-python = ">=3.6"
+license = { text = "MIT" }
+authors = [
+  { name = "Tim Sainburg" }
+]
+keywords = ["noise reduction", "audio", "spectral gating"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Education",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "tqdm",
+    "joblib",
+]
+
+[project.optional-dependencies]
+torch = [ "torch" ]
+testing = [
+    "coverage",
+    "pytest>=3.6",
+    "pytest-ordering",
+    "pytest-cov",
+    "python-coveralls",
+]
+
+[project.scripts]
+noisereduce = "noisereduce.cli:main"
+
+[tool.uv]
+package = true

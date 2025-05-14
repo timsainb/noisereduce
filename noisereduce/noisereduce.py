@@ -57,7 +57,7 @@ def reduce_noise(
     time_mask_smooth_ms : int, optional
         The time range to smooth the mask over in milliseconds, by default 50
     thresh_n_mult_nonstationary : int, optional
-        Only used in nonstationary noise reduction., by default 1
+        Only used in nonstationary noise reduction., by default 2
     sigmoid_slope_nonstationary : int, optional
         Only used in nonstationary noise reduction., by default 10
     n_std_thresh_stationary : int, optional
@@ -69,7 +69,7 @@ def reduce_noise(
     chunk_size : int, optional
         Size of signal chunks to reduce noise over. Larger sizes
         will take more space in memory, smaller sizes can take longer to compute.
-        , by default 60000
+        , by default 600000
         padding : int, optional
         How much to pad each chunk of signal by. Larger pads are
         needed for larger time constants., by default 30000

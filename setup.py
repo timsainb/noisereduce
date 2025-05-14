@@ -25,4 +25,9 @@ setup(
     extras_require={
         "PyTorch": ["torch>=1.9.0"],
     },
+    entry_points={
+        'console_scripts': [
+            'noisereduce = noisereduce.cli:main',
+        ],
+    },
 )
