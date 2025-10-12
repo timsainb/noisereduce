@@ -70,7 +70,7 @@ def reduce_noise(
         Size of signal chunks to reduce noise over. Larger sizes
         will take more space in memory, smaller sizes can take longer to compute.
         , by default 60000
-        padding : int, optional
+    padding : int, optional
         How much to pad each chunk of signal by. Larger pads are
         needed for larger time constants., by default 30000
     n_fft : int, optional
