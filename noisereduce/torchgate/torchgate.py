@@ -258,6 +258,7 @@ class TorchGate(torch.nn.Module):
             hop_length=self.hop_length,
             win_length=self.win_length,
             center=True,
+            length=x.shape[-1],
             window=torch.hann_window(self.win_length).to(Y.device),
         )
 
