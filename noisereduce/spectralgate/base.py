@@ -219,7 +219,9 @@ class SpectralGate:
                     else:
                         return filtered_chunk.astype(self._dtype)
 
-        filtered_chunk = self.filter_chunk(start_frame=0, end_frame=end_frame)
+        filtered_chunk = self.filter_chunk(
+            start_frame=start_frame, end_frame=end_frame
+        )
         if self.flat:
             return filtered_chunk.astype(self._dtype).flatten()
         else:
